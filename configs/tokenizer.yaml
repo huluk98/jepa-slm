@@ -1,0 +1,36 @@
+tokenizer:
+  family: t5_sentencepiece_unigram
+  train_base_vocab_size: 32000
+  extra_sentinel_tokens: 100
+  active_tokenizer_size: 32100
+  embedding_vocab_size: 32128
+  why_32128: "32000 base SentencePiece slots + 100 sentinels = 32100 active IDs, rounded/padded to 32128 model embedding rows for T5-style configs."
+  model_type: unigram
+  character_coverage: 0.9995
+  byte_fallback: true
+  normalization_rule_name: nmt_nfkc
+  pad_id: 0
+  eos_id: 1
+  unk_id: 2
+  bos_id: -1
+
+training_corpus:
+  pilot_dataset: HuggingFaceFW/fineweb-edu
+  pilot_subset: sample-10BT
+  main_dataset: HuggingFaceTB/smollm-corpus
+  main_mixture:
+    fineweb-edu-dedup: 0.80
+    cosmopedia-v2: 0.15
+    python-edu: 0.05
+
+sample_policy:
+  tokenizer_training_tokens: 2000000000
+  minimum_documents: 5000000
+  shuffle_input_sentence: true
+  train_extremely_large_corpus: true
+
+special_tokens:
+  pad_token: "<pad>"
+  eos_token: "</s>"
+  unk_token: "<unk>"
+  sentinel_format: "<extra_id_{i}>"

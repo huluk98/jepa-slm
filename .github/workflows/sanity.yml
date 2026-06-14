@@ -14,9 +14,10 @@ jobs:
           python-version: "3.11"
       - name: Compile scripts and package
         run: |
-          python -m py_compile scripts/jepa_research_agent.py scripts/jepa_verifier_agent.py scripts/dataset_recommender_agent.py scripts/h20_sanity_check.py src/jepa_slm/*.py
+          python -m py_compile scripts/jepa_research_agent.py scripts/jepa_verifier_agent.py scripts/dataset_recommender_agent.py scripts/tokenizer_recommender_agent.py scripts/train_sentencepiece_tokenizer.py scripts/h20_sanity_check.py src/jepa_slm/*.py
       - name: Regenerate reports
         run: |
           python scripts/jepa_research_agent.py
           python scripts/jepa_verifier_agent.py
           python scripts/dataset_recommender_agent.py
+          python scripts/tokenizer_recommender_agent.py

@@ -1,6 +1,6 @@
 # JEPA Encoder-Decoder Verification Report
 
-Generated: 2026-06-14 20:38
+Generated: 2026-06-14 20:48
 
 ## Verdict
 
@@ -16,28 +16,28 @@ Best candidate: **d768-e10-d10-p512x3**
 | d_ff | 3072 |
 | attention heads | 12 |
 | predictor | 512 width x 3 layers |
-| trainable params | 200.2M |
-| stored params incl. EMA | 271.1M |
+| trainable params | 200.3M |
+| stored params incl. EMA | 271.2M |
 | estimated peak VRAM | 6.2 GB |
 
 ## Candidate Loop Results
 
 | candidate | trainable | encoder | decoder | predictor | VRAM | score | checks |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| d768-e10-d10-p512x3 | 200.2M | 70.9M | 94.5M | 10.2M | 6.2 GB | 99.9 | 7 OK / 0 WARN / 0 FAIL |
-| d832-e12-d6-p512x3 | 203.3M | 99.8M | 66.5M | 10.3M | 6.4 GB | 98.7 | 7 OK / 0 WARN / 0 FAIL |
-| d704-e12-d12-p512x2 | 196.4M | 71.5M | 95.3M | 7.0M | 6.2 GB | 98.5 | 7 OK / 0 WARN / 0 FAIL |
-| d768-e12-d8-p512x3 | 195.5M | 85.1M | 75.6M | 10.2M | 6.2 GB | 98.2 | 7 OK / 0 WARN / 0 FAIL |
-| d704-e14-d10-p512x2 | 192.4M | 83.4M | 79.4M | 7.0M | 6.2 GB | 97.0 | 7 OK / 0 WARN / 0 FAIL |
-| d832-e8-d8-p512x3 | 192.2M | 66.5M | 88.7M | 10.3M | 5.9 GB | 96.9 | 7 OK / 0 WARN / 0 FAIL |
-| d704-e14-d12-p512x2 | 208.3M | 83.4M | 95.3M | 7.0M | 6.5 GB | 96.7 | 7 OK / 0 WARN / 0 FAIL |
-| d832-e10-d8-p512x3 | 208.8M | 83.2M | 88.7M | 10.3M | 6.4 GB | 96.5 | 7 OK / 0 WARN / 0 FAIL |
+| d768-e10-d10-p512x3 | 200.3M | 70.9M | 94.5M | 10.2M | 6.2 GB | 99.9 | 7 OK / 0 WARN / 0 FAIL |
+| d832-e12-d6-p512x3 | 203.4M | 99.8M | 66.5M | 10.3M | 6.4 GB | 98.6 | 7 OK / 0 WARN / 0 FAIL |
+| d704-e12-d12-p512x2 | 196.4M | 71.5M | 95.3M | 7.0M | 6.2 GB | 98.6 | 7 OK / 0 WARN / 0 FAIL |
+| d768-e12-d8-p512x3 | 195.6M | 85.1M | 75.6M | 10.2M | 6.2 GB | 98.2 | 7 OK / 0 WARN / 0 FAIL |
+| d704-e14-d10-p512x2 | 192.5M | 83.4M | 79.4M | 7.0M | 6.2 GB | 97.0 | 7 OK / 0 WARN / 0 FAIL |
+| d832-e8-d8-p512x3 | 192.3M | 66.5M | 88.7M | 10.3M | 5.9 GB | 96.9 | 7 OK / 0 WARN / 0 FAIL |
+| d704-e14-d12-p512x2 | 208.4M | 83.4M | 95.3M | 7.0M | 6.5 GB | 96.7 | 7 OK / 0 WARN / 0 FAIL |
+| d832-e10-d8-p512x3 | 208.9M | 83.2M | 88.7M | 10.3M | 6.4 GB | 96.4 | 7 OK / 0 WARN / 0 FAIL |
 
 ## Verification Checks For Recommended Candidate
 
 | check | status | detail |
 | --- | --- | --- |
-| parameter budget | OK | 200.2M trainable vs target 200.0M |
+| parameter budget | OK | 200.3M trainable vs target 200.0M |
 | predictor overhead | OK | predictor is 5.4% of the base encoder-decoder |
 | generation objective | OK | token CE is retained, so the model remains generative |
 | collapse controls | OK | EMA targets plus normalized top-layer latent prediction are configured |
@@ -118,7 +118,7 @@ Track these gates:
 
 ## Assumptions
 
-- Vocabulary size: 32000
+- Vocabulary size: 32128
 - Source length: 512
 - Target length: 256
 - Micro-batch size: 8

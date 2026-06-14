@@ -14,7 +14,7 @@ class ModelShape:
     decoder_layers: int = 10
     d_ff: int = 3072
     attention_heads: int = 12
-    vocab_size: int = 32_000
+    vocab_size: int = 32_128
     predictor_width: int = 512
     predictor_layers: int = 3
 

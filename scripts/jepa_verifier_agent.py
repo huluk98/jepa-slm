@@ -553,7 +553,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--target-params", type=int, default=200_000_000)
     parser.add_argument("--tolerance", type=float, default=0.12)
-    parser.add_argument("--vocab-size", type=int, default=32_000)
+    parser.add_argument("--vocab-size", type=int, default=32_128)
     parser.add_argument("--source-len", type=int, default=512)
     parser.add_argument("--target-len", type=int, default=256)
     parser.add_argument("--micro-batch", type=int, default=8)

@@ -6,7 +6,7 @@ model:
   decoder_layers: 10
   d_ff: 3072
   attention_heads: 12
-  vocab_size: 32000
+  vocab_size: 32128
   position_encoding: relative_bias
 
 jepa:

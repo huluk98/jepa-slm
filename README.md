@@ -30,6 +30,12 @@ Generate the dataset recommendation report:
 python3 scripts/dataset_recommender_agent.py
 ```
 
+Generate the tokenizer recommendation report:
+
+```bash
+python3 scripts/tokenizer_recommender_agent.py
+```
+
 Check an 8x H20 node:
 
 ```bash
@@ -66,13 +72,37 @@ Dataset:
 - `reports/jepa_slm_research_report.md`
 - `reports/jepa_slm_research_ranking.json`
 - `reports/dataset_recommendation.md`
+- `reports/tokenizer_recommendation.md`
 
 ## Configs
 
 - `configs/model_0_2b.yaml`
 - `configs/datasets.yaml`
+- `configs/tokenizer.yaml`
 - `configs/train_h20_8gpu.yaml`
 - `configs/deepspeed_h20_zero1.json`
+
+## Tokenizer
+
+Recommended tokenizer:
+
+```text
+T5-style SentencePiece Unigram
+32000 base SentencePiece slots + 100 sentinel tokens
+32100 active tokenizer IDs
+32128 model embedding rows
+```
+
+Train it with:
+
+```bash
+python scripts/train_sentencepiece_tokenizer.py \
+  --dataset HuggingFaceFW/fineweb-edu \
+  --subset sample-10BT \
+  --output-dir artifacts/tokenizer \
+  --vocab-size 32000 \
+  --extra-ids 100
+```
 
 ## 8x H20 Environment
 

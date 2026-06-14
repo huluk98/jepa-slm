@@ -15,6 +15,7 @@ wandb/
 outputs/
 data/
 datasets/
+artifacts/
 *.pt
 *.pth
 *.safetensors
