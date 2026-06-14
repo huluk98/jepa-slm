@@ -1,0 +1,44 @@
+model:
+  family: t5_ul2_encoder_decoder_homebench_small
+  target_trainable_params: 100000000
+  d_model: 512
+  encoder_layers: 12
+  decoder_layers: 10
+  d_ff: 2048
+  attention_heads: 8
+  vocab_size: 32128
+  position_encoding: relative_bias
+
+jepa:
+  enabled: true
+  target_encoder: ema_encoder_only
+  predictor_width: 384
+  predictor_layers: 2
+  top_k_target_layers: 4
+  normalize_targets: true
+  latent_loss: smooth_l1_or_mse
+  lambda_peak: 0.20
+  lambda_warmup_fraction: 0.10
+  ema_tau_start: 0.99
+  ema_tau_end: 0.9995
+
+training:
+  objective: ce_plus_jepa
+  phase_1: span_corruption_plus_jepa
+  phase_2: command_schema_sft_plus_jepa
+  phase_3: invalid_instruction_rejection_polish
+  source_length_pretrain: 512
+  target_length_pretrain: 256
+  source_length_command: 256
+  target_length_command: 128
+  gradient_checkpointing: true
+
+domain:
+  target_benchmark: homebench_style_valid_invalid_smart_home_commands
+  output_contract: structured_action_or_rejection
+  constrained_decoding: true
+  required_eval_slices:
+    - valid_single_device
+    - invalid_single_device
+    - valid_multi_device
+    - invalid_multi_device

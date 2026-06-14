@@ -42,6 +42,12 @@ Generate the combined tokenizer and model-shape search report:
 python3 scripts/model_design_search_agent.py
 ```
 
+Generate the smaller HomeBench-style command model verification report:
+
+```bash
+python3 scripts/small_model_verification_agent.py
+```
+
 Check an 8x H20 node:
 
 ```bash
@@ -59,6 +65,16 @@ Architecture:
 - `attention_heads=12`
 - JEPA predictor: `512 width x 3 layers`
 - EMA target: encoder-only
+
+Smaller command-focused option:
+
+- `d_model=512`
+- `encoder_layers=12`
+- `decoder_layers=10`
+- `d_ff=2048`
+- `attention_heads=8`
+- JEPA predictor: `384 width x 2 layers`
+- Trainable params: about `100M`
 
 Objective:
 
@@ -80,10 +96,12 @@ Dataset:
 - `reports/dataset_recommendation.md`
 - `reports/tokenizer_recommendation.md`
 - `reports/model_design_search_report.md`
+- `reports/small_model_verification_report.md`
 
 ## Configs
 
 - `configs/model_0_2b.yaml`
+- `configs/model_homebench_0_1b.yaml`
 - `configs/datasets.yaml`
 - `configs/tokenizer.yaml`
 - `configs/train_h20_8gpu.yaml`
