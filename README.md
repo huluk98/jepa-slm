@@ -36,6 +36,12 @@ Generate the tokenizer recommendation report:
 python3 scripts/tokenizer_recommender_agent.py
 ```
 
+Generate the combined tokenizer and model-shape search report:
+
+```bash
+python3 scripts/model_design_search_agent.py
+```
+
 Check an 8x H20 node:
 
 ```bash
@@ -73,6 +79,7 @@ Dataset:
 - `reports/jepa_slm_research_ranking.json`
 - `reports/dataset_recommendation.md`
 - `reports/tokenizer_recommendation.md`
+- `reports/model_design_search_report.md`
 
 ## Configs
 
