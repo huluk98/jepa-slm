@@ -1,0 +1,29 @@
+recommended:
+  pilot:
+    name: HuggingFaceFW/fineweb-edu
+    subset: sample-10BT
+    reason: Best low-cost first run for CE-only vs CE+JEPA ablations.
+    license: ODC-By 1.0 plus Common Crawl terms
+  main:
+    name: HuggingFaceTB/smollm-corpus
+    mixture:
+      fineweb_edu_dedup: 0.80
+      cosmopedia_v2: 0.15
+      python_edu: 0.05
+    reason: Small-model-oriented corpus with educational web, synthetic textbooks, and educational Python.
+    license: ODC-By 1.0
+  scale_up:
+    name: HuggingFaceFW/fineweb-edu
+    subset: sample-100BT or larger
+    reason: Clean educational web text that scales without switching data family.
+    license: ODC-By 1.0 plus Common Crawl terms
+
+alternatives:
+  dclm_baseline:
+    name: mlfoundations/dclm-baseline-1.0
+    reason: Strong open general LM baseline, but larger and less targeted to encoder-decoder JEPA.
+    license: CC-BY-4.0
+  dolma:
+    name: allenai/dolma
+    reason: Very well documented open corpus with diverse sources; use when transparency matters most.
+    license: ODC-By 1.0 plus source terms

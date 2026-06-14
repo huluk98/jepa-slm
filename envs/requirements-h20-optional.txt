@@ -1,0 +1,4 @@
+# Install these after the conda environment is active and PyTorch is importable.
+# FlashAttention needs to compile against the installed torch/CUDA stack.
+flash-attn>=2.6.3
+transformer-engine[pytorch]>=1.9.0

@@ -1,0 +1,32 @@
+model:
+  family: t5_ul2_encoder_decoder
+  target_trainable_params: 200000000
+  d_model: 768
+  encoder_layers: 10
+  decoder_layers: 10
+  d_ff: 3072
+  attention_heads: 12
+  vocab_size: 32000
+  position_encoding: relative_bias
+
+jepa:
+  enabled: true
+  target_encoder: ema_encoder_only
+  predictor_width: 512
+  predictor_layers: 3
+  top_k_target_layers: 4
+  normalize_targets: true
+  latent_loss: smooth_l1_or_mse
+  lambda_peak: 0.25
+  lambda_warmup_fraction: 0.10
+  ema_tau_start: 0.99
+  ema_tau_end: 0.9995
+
+training:
+  objective: ce_plus_jepa
+  phase_1: span_corruption_plus_jepa
+  phase_2: span_corruption_prefix_seq2seq_plus_jepa
+  phase_3: ce_polish_with_low_or_zero_jepa
+  source_length: 512
+  target_length: 256
+  gradient_checkpointing: true

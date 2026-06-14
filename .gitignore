@@ -1,0 +1,26 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+.DS_Store
+
+# Training artifacts
+checkpoints/
+runs/
+wandb/
+outputs/
+data/
+datasets/
+*.pt
+*.pth
+*.safetensors
+*.bin
+
+# Local secrets
+.env
+.env.*
+*.token

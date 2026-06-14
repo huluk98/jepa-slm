@@ -1,0 +1,214 @@
+{
+  "generated_at": "2026-06-14T20:38:23",
+  "weights": {
+    "generative_contract": 0.24,
+    "latent_prediction_fit": 0.22,
+    "small_model_efficiency": 0.17,
+    "theory_support": 0.19,
+    "implementation_simplicity": 0.1,
+    "ablation_clarity": 0.08
+  },
+  "ranking": [
+    {
+      "key": "ul2_jepa",
+      "name": "UL2/T5 Encoder-Decoder + Encoder JEPA Auxiliary",
+      "weighted_score": 93.6,
+      "scores": {
+        "generative_contract": 5,
+        "latent_prediction_fit": 5,
+        "small_model_efficiency": 4,
+        "theory_support": 5,
+        "implementation_simplicity": 3.5,
+        "ablation_clarity": 5
+      },
+      "strengths": [
+        "Keeps token CE as the generation contract.",
+        "Gives the encoder a direct semantic prediction task.",
+        "Allows staged or mixed denoising objectives.",
+        "JEPA components are train-time only and can be removed at inference."
+      ],
+      "risks": [
+        "Too much latent loss can hurt decoder fluency.",
+        "EMA target and predictor add training compute.",
+        "Needs collapse monitoring, not just loss curves."
+      ]
+    },
+    {
+      "key": "t5_jepa",
+      "name": "Plain T5 Span-Corruption + Encoder JEPA Auxiliary",
+      "weighted_score": 87.8,
+      "scores": {
+        "generative_contract": 5,
+        "latent_prediction_fit": 4.5,
+        "small_model_efficiency": 4,
+        "theory_support": 4,
+        "implementation_simplicity": 4,
+        "ablation_clarity": 4.5
+      },
+      "strengths": [
+        "Easy to implement and compare against a normal T5 baseline.",
+        "Strong fit for summarization, translation, QA, and instruction-to-output tasks.",
+        "Clear ablations: CE-only versus CE+JEPA."
+      ],
+      "risks": [
+        "Less objective diversity than UL2.",
+        "May undertrain causal/prefix behavior unless added explicitly."
+      ]
+    },
+    {
+      "key": "bart_jepa",
+      "name": "BART Denoising + Encoder JEPA Auxiliary",
+      "weighted_score": 82.1,
+      "scores": {
+        "generative_contract": 5,
+        "latent_prediction_fit": 4,
+        "small_model_efficiency": 3.5,
+        "theory_support": 4,
+        "implementation_simplicity": 3.5,
+        "ablation_clarity": 4
+      },
+      "strengths": [
+        "Denoising aligns naturally with masked-context JEPA.",
+        "Strong bidirectional encoder plus generation decoder."
+      ],
+      "risks": [
+        "Less unified than UL2 for mixing multiple language modeling modes.",
+        "Noising policy can dominate results, making JEPA contribution harder to isolate."
+      ]
+    },
+    {
+      "key": "decoder_only_jepa",
+      "name": "Decoder-Only SLM + Latent Self-Distillation Head",
+      "weighted_score": 68.9,
+      "scores": {
+        "generative_contract": 5,
+        "latent_prediction_fit": 2.5,
+        "small_model_efficiency": 4,
+        "theory_support": 2.5,
+        "implementation_simplicity": 3,
+        "ablation_clarity": 3
+      },
+      "strengths": [
+        "Matches common inference stacks for chat/completion.",
+        "No cross-attention path to maintain."
+      ],
+      "risks": [
+        "Causal attention weakens the bidirectional context that makes JEPA/data2vec targets rich.",
+        "Auxiliary latent prediction can become redundant with next-token prediction."
+      ]
+    },
+    {
+      "key": "pure_jepa",
+      "name": "Pure Text JEPA Encoder, Decoder Added Later",
+      "weighted_score": 63.4,
+      "scores": {
+        "generative_contract": 1.5,
+        "latent_prediction_fit": 5,
+        "small_model_efficiency": 3,
+        "theory_support": 4,
+        "implementation_simplicity": 2,
+        "ablation_clarity": 3
+      },
+      "strengths": [
+        "Cleanest representation-learning experiment.",
+        "Useful if the product is embeddings, retrieval, or classification."
+      ],
+      "risks": [
+        "Does not teach token generation.",
+        "Later decoder attachment can waste pretraining or require expensive alignment."
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "key": "t5",
+      "title": "Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer",
+      "year": 2019,
+      "url": "https://arxiv.org/abs/1910.10683",
+      "evidence_type": "large empirical architecture study",
+      "core_claim": "A text-to-text encoder-decoder can use one maximum-likelihood training interface across many NLP tasks.",
+      "relevance": "Base architecture for small generative encoder-decoder language models."
+    },
+    {
+      "key": "bart",
+      "title": "BART: Denoising Sequence-to-Sequence Pre-training for Natural Language Generation, Translation, and Comprehension",
+      "year": 2019,
+      "url": "https://arxiv.org/abs/1910.13461",
+      "evidence_type": "seq2seq denoising pretraining",
+      "core_claim": "Corrupt text, then train an encoder-decoder to reconstruct it; the bidirectional encoder and left-to-right decoder serve both comprehension and generation.",
+      "relevance": "Shows why denoising seq2seq remains the generation contract that JEPA should not replace."
+    },
+    {
+      "key": "ul2",
+      "title": "UL2: Unifying Language Learning Paradigms",
+      "year": 2022,
+      "url": "https://arxiv.org/abs/2205.05131",
+      "evidence_type": "objective-mixture architecture study",
+      "core_claim": "Mixture-of-Denoisers combines pretraining paradigms and improves the Pareto frontier versus T5- and GPT-like objectives.",
+      "relevance": "Best template for mixing CE denoising, prefix-LM behavior, and auxiliary latent learning."
+    },
+    {
+      "key": "data2vec",
+      "title": "data2vec: A General Framework for Self-supervised Learning in Speech, Vision and Language",
+      "year": 2022,
+      "url": "https://arxiv.org/abs/2202.03555",
+      "evidence_type": "cross-modal latent prediction",
+      "core_claim": "Predict contextualized latent representations of the full input from a masked view, including for NLP.",
+      "relevance": "Closest direct precedent for text JEPA-style latent target prediction."
+    },
+    {
+      "key": "data2vec2",
+      "title": "Efficient Self-supervised Learning with Contextualized Target Representations for Vision, Speech and Language",
+      "year": 2022,
+      "url": "https://arxiv.org/abs/2212.07525",
+      "evidence_type": "efficiency improvement",
+      "core_claim": "Skipping masked-token encoding, using a fast decoder, and amortizing teacher computation can make latent target learning much cheaper.",
+      "relevance": "Supports a small predictor and careful compute accounting for 0.2B models."
+    },
+    {
+      "key": "ijepa",
+      "title": "Self-Supervised Learning from Images with a Joint-Embedding Predictive Architecture",
+      "year": 2023,
+      "url": "https://arxiv.org/abs/2301.08243",
+      "evidence_type": "canonical JEPA implementation",
+      "core_claim": "Predict target-block representations from context-block representations, with EMA target encoder and a predictor.",
+      "relevance": "Provides the JEPA design pattern: context encoder, target encoder, predictor, latent loss."
+    },
+    {
+      "key": "vicreg",
+      "title": "VICReg: Variance-Invariance-Covariance Regularization for Self-Supervised Learning",
+      "year": 2021,
+      "url": "https://arxiv.org/abs/2105.04906",
+      "evidence_type": "collapse prevention theory",
+      "core_claim": "Variance and covariance terms can explicitly prevent constant-representation collapse.",
+      "relevance": "Useful as diagnostics or optional regularizers for JEPA hidden states."
+    },
+    {
+      "key": "barlow",
+      "title": "Barlow Twins: Self-Supervised Learning via Redundancy Reduction",
+      "year": 2021,
+      "url": "https://arxiv.org/abs/2103.03230",
+      "evidence_type": "redundancy-reduction objective",
+      "core_claim": "Driving cross-correlation toward identity encourages invariance while reducing redundant embedding dimensions.",
+      "relevance": "Mathematical guardrail for representation quality and collapse checks."
+    },
+    {
+      "key": "spactor",
+      "title": "SpacTor-T5: Pre-training T5 Models with Span Corruption and Replaced Token Detection",
+      "year": 2024,
+      "url": "https://arxiv.org/abs/2401.13160",
+      "evidence_type": "small/efficient T5 hybrid objective",
+      "core_claim": "A staged hybrid objective can improve T5 pretraining efficiency, with reported reductions in iterations and FLOPs.",
+      "relevance": "Supports staged auxiliary objectives instead of applying all losses equally forever."
+    },
+    {
+      "key": "varjepa",
+      "title": "Var-JEPA: A Variational Formulation of the Joint-Embedding Predictive Architecture",
+      "year": 2026,
+      "url": "https://arxiv.org/abs/2603.20111",
+      "evidence_type": "probabilistic theory",
+      "core_claim": "JEPA can be interpreted as a deterministic specialization of a latent-variable variational objective.",
+      "relevance": "Gives a mathematical bridge between predictive latent learning and generative modeling theory."
+    }
+  ]
+}

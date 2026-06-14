@@ -1,0 +1,41 @@
+# Dataset Recommendation
+
+## Short Answer
+
+For this JEPA-augmented 0.2B encoder-decoder project, use:
+
+1. **Pilot:** `HuggingFaceFW/fineweb-edu`, subset `sample-10BT`.
+2. **Main run:** `HuggingFaceTB/smollm-corpus`.
+3. **Scale-up:** `HuggingFaceFW/fineweb-edu`, subset `sample-100BT` or larger.
+
+## Why
+
+JEPA-style latent prediction benefits from text with coherent semantic structure. Educational pages, synthetic textbooks, tutorials, and code explanations are better targets than arbitrary web fragments because the masked context has real structure to infer.
+
+`FineWeb-Edu` provides a high-quality educational web base and has ready-made samples. Its dataset card lists `sample-10BT`, `sample-100BT`, and larger subsets, which makes it ideal for objective ablations before expensive training.
+
+`SmolLM-Corpus` is the best main mixture because it was designed around small language models. It combines `fineweb-edu-dedup`, `cosmopedia-v2`, and `python-edu`, giving the encoder a mixture of real educational web text, synthetic textbook-like passages, and code explanations.
+
+## Suggested Mix
+
+For the first serious run after the pilot:
+
+| subset | share | purpose |
+| --- | --- | --- |
+| `fineweb-edu-dedup` | 80% | broad educational language and world knowledge |
+| `cosmopedia-v2` | 15% | structured textbook-style explanations |
+| `python-edu` | 5% | reasoning over procedural/code-like text |
+
+## Alternatives
+
+`mlfoundations/dclm-baseline-1.0` is a strong open general LM dataset, but it is large and less targeted to encoder-decoder JEPA. Use it if you want DCLM comparability.
+
+`allenai/dolma` is excellent for transparent research and reproducibility, but it is more heterogeneous. Use it if documentation and source diversity matter more than educational density.
+
+## Sources
+
+- FineWeb-Edu: https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu
+- SmolLM-Corpus: https://huggingface.co/datasets/HuggingFaceTB/smollm-corpus
+- SmolLM blog: https://huggingface.co/blog/smollm
+- DCLM-Baseline: https://huggingface.co/datasets/mlfoundations/dclm-baseline-1.0
+- Dolma: https://huggingface.co/datasets/allenai/dolma
