@@ -48,6 +48,12 @@ Generate the smaller HomeBench-style command model verification report:
 python3 scripts/small_model_verification_agent.py
 ```
 
+Generate the activation and position-encoding recommendation report:
+
+```bash
+python3 scripts/activation_position_agent.py
+```
+
 Check an 8x H20 node:
 
 ```bash
@@ -97,10 +103,12 @@ Dataset:
 - `reports/tokenizer_recommendation.md`
 - `reports/model_design_search_report.md`
 - `reports/small_model_verification_report.md`
+- `reports/activation_position_report.md`
 
 ## Configs
 
 - `configs/model_0_2b.yaml`
+- `configs/model_0_2b_swiglu_ablation.yaml`
 - `configs/model_homebench_0_1b.yaml`
 - `configs/datasets.yaml`
 - `configs/tokenizer.yaml`
