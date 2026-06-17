@@ -60,6 +60,12 @@ Check an 8x H20 node:
 python3 scripts/h20_sanity_check.py
 ```
 
+Run a one-step offline smoke train:
+
+```bash
+PYTHONPATH=src python -m jepa_slm.train --config configs/train_tiny_smoke.yaml
+```
+
 ## Main Recommendation
 
 Architecture:
@@ -105,6 +111,11 @@ Dataset:
 - `reports/small_model_verification_report.md`
 - `reports/activation_position_report.md`
 
+## Training Pipeline
+
+See `docs/training_pipeline.md` for the executable CE+JEPA trainer, smoke test,
+and current implementation boundaries.
+
 ## Configs
 
 - `configs/model_0_2b.yaml`
@@ -112,6 +123,7 @@ Dataset:
 - `configs/model_homebench_0_1b.yaml`
 - `configs/datasets.yaml`
 - `configs/tokenizer.yaml`
+- `configs/train_tiny_smoke.yaml`
 - `configs/train_h20_8gpu.yaml`
 - `configs/deepspeed_h20_zero1.json`
 
@@ -153,6 +165,16 @@ Launch the 8-GPU training scaffold:
 ```bash
 bash scripts/launch_h20_8gpu.sh configs/train_h20_8gpu.yaml
 ```
+
+The training entrypoint now enforces the intended contract:
+
+```text
+clean source -> EMA encoder -> latent target
+masked source -> student encoder -> JEPA predictor -> latent loss
+masked source -> encoder-decoder -> token CE loss
+```
+
+Decoded tokens are never fed back into JEPA target construction.
 
 See `docs/h20_8gpu_training.md` for the utilization plan.
 

@@ -24,7 +24,7 @@ performance:
   dataloader_prefetch_factor: 4
   pin_memory: true
   persistent_workers: true
-  sequence_packing: true
+  sequence_packing: false
   fused_optimizer: adamw_torch_fused
   empty_cache_steps: 0
 
@@ -40,7 +40,7 @@ batching:
   global_batch_sequences: 512
   approximate_tokens_per_step: 393216
   batch_autotune:
-    enabled: true
+    enabled: false
     start_per_gpu_sequences: 64
     max_per_gpu_sequences: 192
     growth_factor: 1.25
@@ -72,6 +72,18 @@ data:
     fineweb-edu-dedup: 0.80
     cosmopedia-v2: 0.15
     python-edu: 0.05
+  tokenizer_name: google-t5/t5-small
+  tokenizer_path: null
+  split: train
+  text_field: text
+  streaming: true
+
+runtime:
+  output_dir: outputs/jepa-slm-h20
+  max_steps: 1000
+  save_every_steps: 1000
+  log_every_steps: 10
+  seed: 13
 
 logging:
   log_every_steps: 10

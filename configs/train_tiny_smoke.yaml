@@ -1,0 +1,50 @@
+model:
+  family: tiny_jepa_encoder_decoder_smoke
+  target_trainable_params: 1000000
+  d_model: 32
+  encoder_layers: 2
+  decoder_layers: 2
+  d_ff: 64
+  attention_heads: 4
+  vocab_size: 320
+  position_encoding: relative_bias
+
+jepa:
+  enabled: true
+  target_encoder: ema_encoder_only
+  predictor_width: 32
+  predictor_layers: 1
+  top_k_target_layers: 2
+  normalize_targets: true
+  latent_loss: smooth_l1_or_mse
+  lambda_peak: 0.10
+  lambda_warmup_fraction: 0.50
+  ema_tau_start: 0.99
+  ema_tau_end: 0.999
+
+data:
+  dataset: synthetic
+  tokenizer_name: internal-byte
+  max_samples: 8
+
+batching:
+  source_length: 32
+  target_length: 32
+  per_gpu_micro_batch_sequences: 2
+  gradient_accumulation_steps: 1
+
+optimizer:
+  learning_rate: 0.0005
+  weight_decay: 0.0
+  grad_clip_norm: 1.0
+  warmup_fraction: 0.1
+
+runtime:
+  output_dir: outputs/tiny-smoke
+  max_steps: 1
+  save_every_steps: 1
+  log_every_steps: 1
+  precision: fp32
+  compile: false
+  gradient_checkpointing: false
+  seed: 7

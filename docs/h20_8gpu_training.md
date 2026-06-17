@@ -51,8 +51,11 @@ torchrun --standalone --nnodes=1 --nproc_per_node=8 -m jepa_slm.train --config c
 - Use FlashAttention 2 when available.
 - Keep `gradient_accumulation_steps=1` initially; H20 memory should allow large micro-batches.
 - Start at `64` sequences per GPU with `source_length=512` and `target_length=256`.
-- Enable batch autotune to grow toward 92% memory utilization.
-- Use sequence packing so short examples do not waste attention compute.
+- Current trainer uses fixed micro-batches. Increase `per_gpu_micro_batch_sequences`
+  manually after the first profiler run; automatic batch autotune is left disabled
+  until it is implemented in code.
+- Sequence packing is also left disabled in the executable trainer for now. Add it
+  after the baseline CE+JEPA path is stable.
 - Prefer DDP for 0.2B. Use `configs/deepspeed_h20_zero1.json` only if optimizer state or larger variants become the bottleneck.
 
 ## What To Watch
