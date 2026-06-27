@@ -19,9 +19,16 @@ training_corpus:
   pilot_subset: sample-10BT
   main_dataset: HuggingFaceTB/smollm-corpus
   main_mixture:
-    fineweb-edu-dedup: 0.80
-    cosmopedia-v2: 0.15
-    python-edu: 0.05
+    fineweb-edu-dedup: 0.55
+    cosmopedia-v2: 0.20
+    math: 0.10
+    code: 0.10
+    instruction-distill: 0.05
+
+cleaning:
+  normalize_text: true
+  min_chars: 200
+  max_chars: 20000
 
 sample_policy:
   tokenizer_training_tokens: 2000000000

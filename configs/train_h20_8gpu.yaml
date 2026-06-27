@@ -69,14 +69,19 @@ data:
   pilot_subset: sample-10BT
   main_dataset: HuggingFaceTB/smollm-corpus
   main_mixture:
-    fineweb-edu-dedup: 0.80
-    cosmopedia-v2: 0.15
-    python-edu: 0.05
+    fineweb-edu-dedup: 0.55
+    cosmopedia-v2: 0.20
+    math: 0.10
+    code: 0.10
+    instruction-distill: 0.05
   tokenizer_name: google-t5/t5-small
   tokenizer_path: null
   split: train
   text_field: text
   streaming: true
+  normalize_text: true
+  min_chars: 200
+  max_chars: 20000
 
 runtime:
   output_dir: outputs/jepa-slm-h20

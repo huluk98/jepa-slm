@@ -7,10 +7,12 @@ recommended:
   main:
     name: HuggingFaceTB/smollm-corpus
     mixture:
-      fineweb_edu_dedup: 0.80
-      cosmopedia_v2: 0.15
-      python_edu: 0.05
-    reason: Small-model-oriented corpus with educational web, synthetic textbooks, and educational Python.
+      fineweb_edu_dedup: 0.55
+      cosmopedia_v2: 0.20
+      math: 0.10
+      code: 0.10
+      instruction_distill: 0.05
+    reason: Small-model-oriented corpus with educational web, synthetic textbooks, math/code, and a small Qwen-style distillation polish.
     license: ODC-By 1.0
   scale_up:
     name: HuggingFaceFW/fineweb-edu
@@ -27,3 +29,13 @@ alternatives:
     name: allenai/dolma
     reason: Very well documented open corpus with diverse sources; use when transparency matters most.
     license: ODC-By 1.0 plus source terms
+
+cleaning:
+  normalize_text: true
+  min_chars: 200
+  max_chars: 20000
+  process:
+    html_unescape: true
+    unicode_nfkc: true
+    collapse_whitespace: true
+    drop_short_documents: true

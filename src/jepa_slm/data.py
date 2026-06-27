@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import glob
+import gzip
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable, Iterator, Protocol
 
 import torch
@@ -12,6 +16,7 @@ from transformers import AutoTokenizer, T5Tokenizer
 from .config import DataSettings
 from .masking import span_mask_batch
 from .modeling import JepaBatch
+from .text_cleaning import clean_text
 
 
 class TokenizerLike(Protocol):
@@ -107,8 +112,32 @@ class TextStreamDataset(IterableDataset[dict[str, str]]):
             )
             count = 0
             while self.settings.max_samples is None or count < self.settings.max_samples:
-                yield {"text": samples[count % len(samples)]}
+                text = clean_text(
+                    samples[count % len(samples)],
+                    normalize=self.settings.normalize_text,
+                    min_chars=self.settings.min_chars,
+                    max_chars=self.settings.max_chars,
+                )
                 count += 1
+                if text is not None:
+                    yield {"text": text}
+            return
+
+        if _is_local_dataset(self.settings.dataset):
+            count = 0
+            for text in _iter_local_texts(self.settings.dataset, self.settings.text_field):
+                text = clean_text(
+                    text,
+                    normalize=self.settings.normalize_text,
+                    min_chars=self.settings.min_chars,
+                    max_chars=self.settings.max_chars,
+                )
+                if text is None:
+                    continue
+                yield {"text": text}
+                count += 1
+                if self.settings.max_samples is not None and count >= self.settings.max_samples:
+                    break
             return
 
         from datasets import load_dataset
@@ -124,10 +153,44 @@ class TextStreamDataset(IterableDataset[dict[str, str]]):
             text = row.get(self.settings.text_field)
             if not text:
                 continue
-            yield {"text": str(text)}
+            text = clean_text(
+                text,
+                normalize=self.settings.normalize_text,
+                min_chars=self.settings.min_chars,
+                max_chars=self.settings.max_chars,
+            )
+            if text is None:
+                continue
+            yield {"text": text}
             count += 1
             if self.settings.max_samples is not None and count >= self.settings.max_samples:
                 break
+
+
+def _is_local_dataset(dataset: str) -> bool:
+    return any(char in dataset for char in "*?[") or Path(dataset).exists()
+
+
+def _open_text(path: Path):
+    if path.suffix == ".gz":
+        return gzip.open(path, "rt", encoding="utf-8")
+    return path.open("r", encoding="utf-8")
+
+
+def _iter_local_texts(dataset: str, text_field: str) -> Iterator[str]:
+    paths = [Path(path) for path in sorted(glob.glob(dataset))] or [Path(dataset)]
+    for path in paths:
+        with _open_text(path) as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                if path.suffix == ".jsonl" or path.name.endswith(".jsonl.gz"):
+                    value = json.loads(line).get(text_field)
+                    if value:
+                        yield str(value)
+                else:
+                    yield line
 
 
 @dataclass

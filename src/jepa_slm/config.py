@@ -50,6 +50,7 @@ class JepaSettings:
     latent_loss: str = "smooth_l1_or_mse"
     lambda_peak: float = 0.25
     lambda_warmup_fraction: float = 0.10
+    cross_attention_jepa_weight: float = 0.0
     ema_tau_start: float = 0.99
     ema_tau_end: float = 0.9995
 
@@ -66,6 +67,9 @@ class DataSettings:
     tokenizer_name: str = "google-t5/t5-small"
     streaming: bool = True
     max_samples: int | None = None
+    normalize_text: bool = True
+    min_chars: int = 0
+    max_chars: int | None = None
 
 
 @dataclass(frozen=True)
@@ -138,6 +142,59 @@ def _source_target_lengths(training: dict[str, Any], batching: dict[str, Any]) -
     return int(source_length), int(target_length)
 
 
+def _parse_simple_yaml_scalar(value: str) -> Any:
+    value = value.strip()
+    if value.lower() in {"null", "none", "~"}:
+        return None
+    if value.lower() == "true":
+        return True
+    if value.lower() == "false":
+        return False
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    if value.startswith("[") and value.endswith("]"):
+        inner = value[1:-1].strip()
+        if not inner:
+            return []
+        return [_parse_simple_yaml_scalar(part) for part in inner.split(",")]
+    try:
+        return int(value)
+    except ValueError:
+        try:
+            return float(value)
+        except ValueError:
+            return value
+
+
+def _load_yaml(path: Path) -> dict[str, Any]:
+    try:
+        import yaml
+    except ModuleNotFoundError:
+        # ponytail: simple nested mappings only; install PyYAML for full YAML syntax.
+        root: dict[str, Any] = {}
+        stack: list[tuple[int, dict[str, Any]]] = [(-1, root)]
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.rstrip()
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            indent = len(line) - len(line.lstrip(" "))
+            key, separator, value = line.strip().partition(":")
+            if not separator:
+                raise ValueError(f"Unsupported YAML line in {path}: {raw_line}")
+            while indent <= stack[-1][0]:
+                stack.pop()
+            parent = stack[-1][1]
+            if value.strip():
+                parent[key] = _parse_simple_yaml_scalar(value)
+            else:
+                parent[key] = {}
+                stack.append((indent, parent[key]))
+        return root
+
+    with path.open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle) or {}
+
+
 def load_training_config(path: Path | str) -> TrainingConfig:
     """Load model/training YAML into a typed training config.
 
@@ -145,11 +202,8 @@ def load_training_config(path: Path | str) -> TrainingConfig:
     loader accepts either shape and fills in conservative defaults.
     """
 
-    import yaml
-
     config_path = Path(path)
-    with config_path.open("r", encoding="utf-8") as handle:
-        raw = yaml.safe_load(handle) or {}
+    raw = _load_yaml(config_path)
 
     model_raw = dict(raw.get("model", {}))
     jepa_raw = dict(raw.get("jepa", {}))

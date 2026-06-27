@@ -1,6 +1,6 @@
 # Dataset Recommendation For JEPA-SLM
 
-Generated: 2026-06-14 20:38
+Generated: 2026-06-27 12:11
 
 ## Recommendation
 
@@ -22,7 +22,7 @@ For the very first ablation, use **HuggingFaceFW/fineweb-edu `sample-10BT`** bec
 1. Pilot on `HuggingFaceFW/fineweb-edu`, subset `sample-10BT`.
 2. Run `CE-only`, `CE+JEPA-0.10`, and `CE+JEPA-0.25`.
 3. If JEPA improves encoder probes without hurting validation CE, move to `HuggingFaceTB/smollm-corpus`.
-4. Use a starting mixture of `80% fineweb-edu-dedup`, `15% cosmopedia-v2`, and `5% python-edu`.
+4. Use a starting mixture of `55% fineweb-edu-dedup`, `20% cosmopedia-v2`, `10% math`, `10% code`, and `5% instruction distillation`.
 5. Scale to FineWeb-Edu `sample-100BT` or larger only after the objective ablation is positive.
 
 ## Why This Dataset Fits JEPA

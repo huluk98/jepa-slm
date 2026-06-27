@@ -145,9 +145,11 @@ python scripts/train_sentencepiece_tokenizer.py \\
 Main tokenizer training should sample the same proportions as the main corpus:
 
 ```text
-80% fineweb-edu-dedup
-15% cosmopedia-v2
-5% python-edu
+55% fineweb-edu-dedup
+20% cosmopedia-v2
+10% math
+10% code
+5% instruction distillation
 ```
 
 ## Validation Gates

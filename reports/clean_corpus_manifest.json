@@ -1,0 +1,34 @@
+{
+  "dataset": "HuggingFaceFW/fineweb-edu",
+  "subset": "sample-10BT",
+  "local_path": "data/clean/fineweb-edu-sample10bt-100k/clean-*.jsonl",
+  "seen_documents": 100000,
+  "kept_documents": 100000,
+  "kept_characters": 426194823,
+  "min_chars": 200,
+  "max_chars": 20000,
+  "normalize_text": true,
+  "complete": true,
+  "shards": [
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-100k/clean-00000.jsonl",
+      "documents": 25000,
+      "sha256": "746fc908a9a7f076b04ab490b361dbfb7b21097b261ff66b29aa742b1d197261"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-100k/clean-00001.jsonl",
+      "documents": 25000,
+      "sha256": "7065b8f44f7dc11ac4f104e291559ed672d079b1fd255f943ad46fe8172d3bb0"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-100k/clean-00002.jsonl",
+      "documents": 25000,
+      "sha256": "cbf399438915715043ead4d5820d777ea67bf04618fa80ea8e32914ea2f4a288"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-100k/clean-00003.jsonl",
+      "documents": 25000,
+      "sha256": "b4cefd752d16bd02fa65ffb8abac4213df272fa96292bee97d599f55010e1471"
+    }
+  ]
+}

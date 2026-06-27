@@ -65,9 +65,11 @@ For the final tokenizer, sample from the same distribution as training:
 
 | subset | share |
 | --- | --- |
-| `fineweb-edu-dedup` | 80% |
-| `cosmopedia-v2` | 15% |
-| `python-edu` | 5% |
+| `fineweb-edu-dedup` | 55% |
+| `cosmopedia-v2` | 20% |
+| math corpus | 10% |
+| code corpus | 10% |
+| instruction distillation sample | 5% |
 
 The pilot tokenizer from FineWeb-Edu `sample-10BT` is good enough for ablations, but the final tokenizer should see the SmolLM-Corpus mixture if Python/code tutorials remain in the training data.
 

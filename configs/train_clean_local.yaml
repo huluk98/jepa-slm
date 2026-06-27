@@ -1,0 +1,47 @@
+hardware:
+  precision: bf16
+
+distributed:
+  compile: true
+
+model:
+  config_path: configs/model_0_2b.yaml
+
+batching:
+  source_length: 512
+  target_length: 256
+  per_gpu_micro_batch_sequences: 64
+  gradient_accumulation_steps: 1
+
+optimizer:
+  learning_rate: 0.0004
+  betas: [0.9, 0.95]
+  weight_decay: 0.1
+  grad_clip_norm: 1.0
+  warmup_fraction: 0.02
+
+objective:
+  ce_weight: 1.0
+  jepa_weight_peak: 0.25
+  jepa_warmup_fraction: 0.10
+  ema_tau_start: 0.99
+  ema_tau_end: 0.9995
+
+data:
+  dataset: "data/clean/fineweb-edu-sample10bt-100k/clean-*.jsonl"
+  subset: null
+  split: train
+  text_field: text
+  tokenizer_name: google-t5/t5-small
+  tokenizer_path: null
+  streaming: true
+  normalize_text: false
+  min_chars: 0
+  max_chars: null
+
+runtime:
+  output_dir: outputs/jepa-slm-clean-local
+  max_steps: 1000
+  save_every_steps: 1000
+  log_every_steps: 10
+  seed: 13

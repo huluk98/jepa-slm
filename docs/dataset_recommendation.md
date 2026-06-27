@@ -14,7 +14,7 @@ JEPA-style latent prediction benefits from text with coherent semantic structure
 
 `FineWeb-Edu` provides a high-quality educational web base and has ready-made samples. Its dataset card lists `sample-10BT`, `sample-100BT`, and larger subsets, which makes it ideal for objective ablations before expensive training.
 
-`SmolLM-Corpus` is the best main mixture because it was designed around small language models. It combines `fineweb-edu-dedup`, `cosmopedia-v2`, and `python-edu`, giving the encoder a mixture of real educational web text, synthetic textbook-like passages, and code explanations.
+`SmolLM-Corpus` is the best main base because it was designed around small language models. Add small math, code, and instruction-distillation slices so the 0.2B model spends its limited capacity on reasoning-heavy text instead of more generic web.
 
 ## Suggested Mix
 
@@ -22,9 +22,11 @@ For the first serious run after the pilot:
 
 | subset | share | purpose |
 | --- | --- | --- |
-| `fineweb-edu-dedup` | 80% | broad educational language and world knowledge |
-| `cosmopedia-v2` | 15% | structured textbook-style explanations |
-| `python-edu` | 5% | reasoning over procedural/code-like text |
+| `fineweb-edu-dedup` | 55% | broad educational language and world knowledge |
+| `cosmopedia-v2` | 20% | structured textbook-style explanations |
+| math corpus | 10% | symbolic reasoning and word problems |
+| code corpus | 10% | procedural reasoning and syntax-heavy text |
+| instruction distillation sample | 5% | Qwen-style answer formatting and task behavior |
 
 ## Alternatives
 
