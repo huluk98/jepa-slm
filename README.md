@@ -42,6 +42,24 @@ Generate the combined tokenizer and model-shape search report:
 python3 scripts/model_design_search_agent.py
 ```
 
+Read the corpus, cleaning, tokenizer, architecture, and optimizer recipe:
+
+```text
+docs/corpus_cleaning_and_0_2b_recipe.md
+```
+
+Prepare cleaned local JSONL shards:
+
+```bash
+python scripts/prepare_clean_corpus.py --max-docs 1000000 --overwrite
+```
+
+Train from cleaned shards:
+
+```bash
+PYTHONPATH=src python -m jepa_slm.train --config configs/train_clean_local.yaml
+```
+
 Generate the smaller HomeBench-style command model verification report:
 
 ```bash
@@ -60,10 +78,41 @@ Check an 8x H20 node:
 python3 scripts/h20_sanity_check.py
 ```
 
+Launch 4x H20 DDP training:
+
+```bash
+bash scripts/launch_h20_4gpu.sh
+```
+
+Stop that run safely:
+
+```bash
+touch outputs/jepa-slm-h20-4gpu/STOP
+```
+
+Resume a stopped 4x H20 run:
+
+```bash
+bash scripts/launch_h20_4gpu.sh configs/train_h20_4gpu.yaml outputs/jepa-slm-h20-4gpu/step-00000250
+```
+
 Run a one-step offline smoke train:
 
 ```bash
 PYTHONPATH=src python -m jepa_slm.train --config configs/train_tiny_smoke.yaml
+```
+
+Export the repo-ready 0.2B JEPA-T5 build config:
+
+```bash
+python scripts/build_0_2b_manifest.py
+```
+
+Run a cross-attention JEPA ablation by setting:
+
+```yaml
+jepa:
+  cross_attention_jepa_weight: 0.1
 ```
 
 ## Main Recommendation

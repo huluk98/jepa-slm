@@ -79,6 +79,9 @@ class RuntimeSettings:
     output_dir: str = "outputs/jepa-slm"
     max_steps: int = 1_000
     save_every_steps: int = 1_000
+    resume_from: str | None = None
+    stop_file: str | None = None
+    save_on_stop: bool = True
     log_every_steps: int = 10
     eval_every_steps: int = 0
     seed: int = 13

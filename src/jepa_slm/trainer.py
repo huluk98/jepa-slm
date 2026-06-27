@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 import os
 import random
+import signal
+from dataclasses import asdict
 from pathlib import Path
 
 import torch
@@ -16,6 +18,21 @@ from .config import TrainingConfig
 from .data import build_dataloader, load_tokenizer, move_batch_to_device
 from .modeling import JepaEncoderDecoder, assert_encoder_only_jepa_contract
 from .objectives import ema_tau, linear_ramp
+
+_STOP_REQUESTED = False
+
+
+def request_stop(signum: int, _frame: object) -> None:
+    """Ask the training loop to stop after the current optimizer step."""
+
+    global _STOP_REQUESTED
+    _STOP_REQUESTED = True
+    print(f"Received signal {signum}; stopping after the current step.", flush=True)
+
+
+def install_signal_handlers() -> None:
+    signal.signal(signal.SIGINT, request_stop)
+    signal.signal(signal.SIGTERM, request_stop)
 
 
 def is_distributed() -> bool:
@@ -92,13 +109,42 @@ def save_checkpoint(
             "step": step,
             "model": raw_model.state_dict(),
             "optimizer": optimizer.state_dict(),
-            "config": config,
+            "config": asdict(config),
         },
         checkpoint_dir / "trainer_state.pt",
     )
 
 
+def checkpoint_state_path(path: Path) -> Path:
+    if path.is_dir():
+        return path / "trainer_state.pt"
+    return path
+
+
+def load_checkpoint(
+    path: Path,
+    model: JepaEncoderDecoder | DistributedDataParallel,
+    optimizer: AdamW,
+    device: torch.device,
+) -> int:
+    raw_model = model.module if isinstance(model, DistributedDataParallel) else model
+    state = torch.load(checkpoint_state_path(path), map_location=device)
+    raw_model.load_state_dict(state["model"])
+    optimizer.load_state_dict(state["optimizer"])
+    return int(state["step"])
+
+
+def should_stop(stop_file: str | None, device: torch.device) -> bool:
+    local_stop = _STOP_REQUESTED or bool(stop_file and Path(stop_file).exists())
+    if dist.is_available() and dist.is_initialized():
+        flag = torch.tensor(int(local_stop), device=device)
+        dist.all_reduce(flag, op=dist.ReduceOp.MAX)
+        return bool(flag.item())
+    return local_stop
+
+
 def train(config: TrainingConfig) -> None:
+    install_signal_handlers()
     rank, local_rank, world_size = setup_distributed()
     set_seed(config.runtime.seed, rank)
     device = select_device(local_rank)
@@ -137,6 +183,12 @@ def train(config: TrainingConfig) -> None:
 
     raw_model = train_model.module if isinstance(train_model, DistributedDataParallel) else train_model
     optimizer = build_optimizer(raw_model, config)
+    step = 0
+    if config.runtime.resume_from:
+        step = load_checkpoint(Path(config.runtime.resume_from), raw_model, optimizer, device)
+        if rank == 0:
+            print(f"Resumed from {config.runtime.resume_from} at step {step}.", flush=True)
+
     output_dir = Path(config.runtime.output_dir)
     if rank == 0:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -144,60 +196,68 @@ def train(config: TrainingConfig) -> None:
     max_steps = config.runtime.max_steps
     accumulation = config.batching.gradient_accumulation_steps
     warmup_steps = max(1, int(max_steps * config.jepa.lambda_warmup_fraction))
-    step = 0
+    stop_training = False
     optimizer.zero_grad(set_to_none=True)
 
-    while step < max_steps:
-        for batch_index, batch in enumerate(dataloader):
-            micro_step = batch_index % accumulation
-            batch = move_batch_to_device(batch, device)
-            jepa_weight = linear_ramp(step, warmup_steps, config.jepa.lambda_peak)
+    try:
+        while step < max_steps and not stop_training:
+            for batch_index, batch in enumerate(dataloader):
+                micro_step = batch_index % accumulation
+                batch = move_batch_to_device(batch, device)
+                jepa_weight = linear_ramp(step, warmup_steps, config.jepa.lambda_peak)
 
-            with torch.autocast(device_type=device.type, dtype=dtype, enabled=dtype is not None):
-                output = train_model(batch, jepa_weight=jepa_weight)
-                loss = output.loss / accumulation
+                with torch.autocast(device_type=device.type, dtype=dtype, enabled=dtype is not None):
+                    output = train_model(batch, jepa_weight=jepa_weight)
+                    loss = output.loss / accumulation
 
-            loss.backward()
-            if micro_step != accumulation - 1:
-                continue
+                loss.backward()
+                if micro_step != accumulation - 1:
+                    continue
 
-            if config.optimizer.grad_clip_norm > 0:
-                torch.nn.utils.clip_grad_norm_(raw_model.parameters(), config.optimizer.grad_clip_norm)
-            lr_factor = lr_scale(step, max_steps, config.optimizer.warmup_fraction)
-            for group in optimizer.param_groups:
-                group["lr"] = config.optimizer.learning_rate * lr_factor
-            optimizer.step()
-            optimizer.zero_grad(set_to_none=True)
+                if config.optimizer.grad_clip_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        raw_model.parameters(), config.optimizer.grad_clip_norm
+                    )
+                lr_factor = lr_scale(step, max_steps, config.optimizer.warmup_fraction)
+                for group in optimizer.param_groups:
+                    group["lr"] = config.optimizer.learning_rate * lr_factor
+                optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
 
-            tau = ema_tau(step, max_steps, config.jepa.ema_tau_start, config.jepa.ema_tau_end)
-            raw_model.update_ema_encoder(tau)
+                tau = ema_tau(step, max_steps, config.jepa.ema_tau_start, config.jepa.ema_tau_end)
+                raw_model.update_ema_encoder(tau)
 
-            if rank == 0 and step % config.runtime.log_every_steps == 0:
-                print(
-                    {
-                        "step": step,
-                        "loss": round(float(output.loss.detach().cpu()), 5),
-                        "ce_loss": round(float(output.ce_loss.detach().cpu()), 5),
-                        "jepa_loss": round(float(output.jepa_loss.detach().cpu()), 5),
-                        "jepa_weight": round(jepa_weight, 5),
-                        "encoder_var": round(float(output.encoder_state_variance.cpu()), 5),
-                        "predictor_var": round(float(output.predictor_state_variance.cpu()), 5),
-                        "lr": optimizer.param_groups[0]["lr"],
-                    },
-                    flush=True,
-                )
+                if rank == 0 and step % config.runtime.log_every_steps == 0:
+                    print(
+                        {
+                            "step": step,
+                            "loss": round(float(output.loss.detach().cpu()), 5),
+                            "ce_loss": round(float(output.ce_loss.detach().cpu()), 5),
+                            "jepa_loss": round(float(output.jepa_loss.detach().cpu()), 5),
+                            "cross_attention_jepa_loss": round(
+                                float(output.cross_attention_jepa_loss.detach().cpu()), 5
+                            ),
+                            "jepa_weight": round(jepa_weight, 5),
+                            "encoder_var": round(float(output.encoder_state_variance.cpu()), 5),
+                            "predictor_var": round(float(output.predictor_state_variance.cpu()), 5),
+                            "lr": optimizer.param_groups[0]["lr"],
+                        },
+                        flush=True,
+                    )
 
-            step += 1
-            if (
-                rank == 0
-                and config.runtime.save_every_steps > 0
-                and step % config.runtime.save_every_steps == 0
-            ):
-                save_checkpoint(output_dir, step, train_model, optimizer, config)
-            if step >= max_steps:
-                break
-
-    if rank == 0:
-        save_checkpoint(output_dir, step, train_model, optimizer, config)
-
-    cleanup_distributed()
+                step += 1
+                if (
+                    rank == 0
+                    and config.runtime.save_every_steps > 0
+                    and step % config.runtime.save_every_steps == 0
+                ):
+                    save_checkpoint(output_dir, step, train_model, optimizer, config)
+                stop_training = should_stop(config.runtime.stop_file, device)
+                if step >= max_steps or stop_training:
+                    break
+    finally:
+        if rank == 0 and (not stop_training or config.runtime.save_on_stop):
+            save_checkpoint(output_dir, step, train_model, optimizer, config)
+            if stop_training:
+                print(f"Stop requested; saved checkpoint at step {step}.", flush=True)
+        cleanup_distributed()
