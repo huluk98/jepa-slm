@@ -7,11 +7,18 @@ distributed:
 model:
   config_path: configs/model_0_2b.yaml
 
+performance:
+  dataloader_num_workers_per_rank: 4
+  dataloader_prefetch_factor: 4
+  persistent_workers: true
+
 batching:
   source_length: 512
   target_length: 256
   per_gpu_micro_batch_sequences: 64
   gradient_accumulation_steps: 1
+  dynamic_padding: true
+  pad_to_multiple_of: 8
 
 optimizer:
   learning_rate: 0.0004
@@ -24,8 +31,12 @@ objective:
   ce_weight: 1.0
   jepa_weight_peak: 0.25
   jepa_warmup_fraction: 0.10
+  jepa_final_phase_weight: 0.05
+  jepa_final_phase_fraction: 0.20
   ema_tau_start: 0.99
   ema_tau_end: 0.9995
+  vicreg_variance_weight: 0.04
+  vicreg_covariance_weight: 0.01
 
 data:
   dataset: "data/clean/fineweb-edu-sample10bt-100k/clean-*.jsonl"
@@ -34,6 +45,7 @@ data:
   text_field: text
   tokenizer_name: google-t5/t5-small
   tokenizer_path: null
+  tokenizer_use_fast: true
   streaming: true
   normalize_text: false
   min_chars: 0

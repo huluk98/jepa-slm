@@ -39,12 +39,9 @@ batching:
   gradient_accumulation_steps: 1
   global_batch_sequences: 512
   approximate_tokens_per_step: 393216
-  batch_autotune:
-    enabled: false
-    start_per_gpu_sequences: 64
-    max_per_gpu_sequences: 192
-    growth_factor: 1.25
-    memory_target_fraction: 0.92
+  # Pad each batch to the longest member (multiple of 8) instead of always 512.
+  dynamic_padding: true
+  pad_to_multiple_of: 8
 
 optimizer:
   name: adamw_torch_fused
@@ -60,9 +57,12 @@ objective:
   jepa_weight_peak: 0.25
   jepa_warmup_fraction: 0.10
   jepa_final_phase_weight: 0.05
+  jepa_final_phase_fraction: 0.20
   ema_tau_start: 0.99
   ema_tau_end: 0.9995
-  variance_covariance_regularizers: monitor_first
+  # Explicit anti-collapse penalty on the masked latents (on top of EMA + norm).
+  vicreg_variance_weight: 0.04
+  vicreg_covariance_weight: 0.01
 
 data:
   pilot_dataset: HuggingFaceFW/fineweb-edu
@@ -76,6 +76,7 @@ data:
     instruction-distill: 0.05
   tokenizer_name: google-t5/t5-small
   tokenizer_path: null
+  tokenizer_use_fast: true
   split: train
   text_field: text
   streaming: true
@@ -85,8 +86,10 @@ data:
 
 runtime:
   output_dir: outputs/jepa-slm-h20
-  max_steps: 1000
-  save_every_steps: 1000
+  # ~393k tokens/step x 50000 steps = ~19.6B tokens (~5x Chinchilla-optimal for
+  # 0.2B). Raise toward ~130000 steps for the documented 50B "main" recipe.
+  max_steps: 50000
+  save_every_steps: 2000
   log_every_steps: 10
   seed: 13
 

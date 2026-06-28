@@ -108,12 +108,17 @@ Export the repo-ready 0.2B JEPA-T5 build config:
 python scripts/build_0_2b_manifest.py
 ```
 
-Run a cross-attention JEPA ablation by setting:
+Run the predictor-context ablation (legacy gathered-only predictor) by setting:
 
 ```yaml
 jepa:
-  cross_attention_jepa_weight: 0.1
+  predictor_full_context: false
 ```
+
+The default (`true`) lets the predictor attend over the full contextualized
+student sequence with a learned mask marker, matching the I-JEPA/data2vec
+contract. See `docs/optimization_changes.md` for the full list of training
+optimizations and the audit findings they resolve.
 
 ## Main Recommendation
 
@@ -174,7 +179,8 @@ and current implementation boundaries.
 - `configs/tokenizer.yaml`
 - `configs/train_tiny_smoke.yaml`
 - `configs/train_h20_8gpu.yaml`
-- `configs/deepspeed_h20_zero1.json`
+- `configs/train_h20_4gpu.yaml`
+- `configs/train_clean_local.yaml`
 
 ## Tokenizer
 

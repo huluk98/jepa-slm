@@ -17,8 +17,18 @@ jepa:
   top_k_target_layers: 4
   normalize_targets: true
   latent_loss: smooth_l1_or_mse
+  # Predictor attends over the full contextualized student sequence with a
+  # learned mask marker (I-JEPA/data2vec style), not just the masked slots.
+  predictor_full_context: true
   lambda_peak: 0.25
   lambda_warmup_fraction: 0.10
+  # Phase-3 CE polish: lambda decays peak -> lambda_final_weight over the last
+  # lambda_final_phase_fraction of training.
+  lambda_final_weight: 0.05
+  lambda_final_phase_fraction: 0.20
+  # VICReg collapse guard on the masked latents (defaults off; on in train cfgs).
+  vicreg_variance_weight: 0.0
+  vicreg_covariance_weight: 0.0
   ema_tau_start: 0.99
   ema_tau_end: 0.9995
 
