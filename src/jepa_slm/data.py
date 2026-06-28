@@ -21,6 +21,8 @@ from .text_cleaning import clean_text
 __all__ = [
     "ByteSmokeTokenizer",
     "JepaCollator",
+    "PackedCollator",
+    "PackedTokenDataset",
     "TextStreamDataset",
     "build_dataloader",
     "clean_text",
@@ -61,6 +63,12 @@ class ByteSmokeTokenizer:
         if vocab_size < 259:
             raise ValueError("ByteSmokeTokenizer requires vocab_size >= 259.")
         self.vocab_size = vocab_size
+
+    def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
+        ids = [3 + byte for byte in text.encode("utf-8", errors="replace")]
+        if add_special_tokens:
+            ids.append(self.eos_token_id)
+        return ids
 
     def __call__(
         self,
@@ -331,6 +339,88 @@ def _shift_right(
     return shifted
 
 
+class PackedTokenDataset(IterableDataset[dict[str, list]]):
+    """Greedy token-level packing over the (sharded) text stream.
+
+    Wraps :class:`TextStreamDataset` so sharding/skip behavior is inherited, then
+    concatenates document token ids (EOS-separated) and emits fixed-length
+    ``source_length`` blocks. Eliminates padding waste and yields fully static
+    shapes (compile-friendly). The trailing partial block is dropped.
+    """
+
+    def __init__(
+        self,
+        settings: DataSettings,
+        tokenizer: TokenizerLike,
+        source_length: int,
+        rank: int = 0,
+        world_size: int = 1,
+    ) -> None:
+        super().__init__()
+        self.text_dataset = TextStreamDataset(settings, rank=rank, world_size=world_size)
+        self.tokenizer = tokenizer
+        self.source_length = source_length
+        eos = getattr(tokenizer, "eos_token_id", None)
+        self.separator_id = eos if eos is not None else tokenizer.pad_token_id
+
+    def __iter__(self) -> Iterator[dict[str, list]]:
+        buffer: list[int] = []
+        for row in self.text_dataset:
+            ids = self.tokenizer.encode(row["text"], add_special_tokens=False)
+            if not ids:
+                continue
+            buffer.extend(ids)
+            buffer.append(self.separator_id)
+            while len(buffer) >= self.source_length:
+                block = buffer[: self.source_length]
+                del buffer[: self.source_length]
+                yield {"input_ids": block}
+
+
+@dataclass
+class PackedCollator:
+    """Build a JepaBatch from pre-packed fixed-length token blocks."""
+
+    tokenizer: TokenizerLike
+    source_length: int
+    target_length: int
+    mask_fraction: float = 0.15
+    mean_span_length: int = 3
+
+    def __call__(self, rows: list[dict[str, list]]) -> JepaBatch:
+        input_ids = torch.tensor([row["input_ids"] for row in rows], dtype=torch.long)
+        attention_mask = torch.ones_like(input_ids)
+        labels = input_ids[:, : self.target_length].clone()
+        labels[labels == self.tokenizer.pad_token_id] = -100
+
+        decoder_input_ids = _shift_right(
+            labels,
+            decoder_start_token_id=self.tokenizer.pad_token_id,
+            pad_token_id=self.tokenizer.pad_token_id,
+        )
+        mask_token_id = self.tokenizer.unk_token_id
+        if mask_token_id is None:
+            mask_token_id = self.tokenizer.pad_token_id
+        masked = span_mask_batch(
+            input_ids,
+            attention_mask,
+            mask_token_id=mask_token_id,
+            pad_token_id=self.tokenizer.pad_token_id,
+            mask_fraction=self.mask_fraction,
+            mean_span_length=self.mean_span_length,
+        )
+        return JepaBatch(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            labels=labels,
+            decoder_input_ids=decoder_input_ids,
+            masked_input_ids=masked.input_ids,
+            masked_attention_mask=masked.attention_mask,
+            masked_positions=masked.masked_positions,
+            masked_position_mask=masked.masked_position_mask,
+        )
+
+
 def move_batch_to_device(
     batch: JepaBatch, device: torch.device, non_blocking: bool = False
 ) -> JepaBatch:
@@ -363,23 +453,31 @@ def build_dataloader(
     pin_memory: bool | None = None,
     dynamic_padding: bool = True,
     pad_to_multiple_of: int = 8,
+    sequence_packing: bool = False,
 ) -> DataLoader:
-    dataset: Iterable[dict[str, str]] = TextStreamDataset(
-        settings, rank=rank, world_size=world_size
-    )
+    dataset: Iterable[object]
+    collate_fn: object
+    if sequence_packing:
+        dataset = PackedTokenDataset(
+            settings, tokenizer, source_length, rank=rank, world_size=world_size
+        )
+        collate_fn = PackedCollator(tokenizer, source_length, target_length)
+    else:
+        dataset = TextStreamDataset(settings, rank=rank, world_size=world_size)
+        collate_fn = JepaCollator(
+            tokenizer,
+            source_length,
+            target_length,
+            dynamic_padding=dynamic_padding,
+            pad_to_multiple_of=pad_to_multiple_of,
+        )
     if pin_memory is None:
         pin_memory = True
     # Pinned host memory only helps CUDA H2D transfers; avoid the MPS/CPU warning.
     pin_memory = bool(pin_memory) and torch.cuda.is_available()
     loader_kwargs: dict[str, object] = {
         "batch_size": batch_size,
-        "collate_fn": JepaCollator(
-            tokenizer,
-            source_length,
-            target_length,
-            dynamic_padding=dynamic_padding,
-            pad_to_multiple_of=pad_to_multiple_of,
-        ),
+        "collate_fn": collate_fn,
         "num_workers": num_workers,
         "pin_memory": pin_memory,
     }

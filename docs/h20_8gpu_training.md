@@ -73,8 +73,10 @@ The trainer now honors the throughput knobs that were previously dead config
 - Start at `64` sequences per GPU with `source_length=512`, `target_length=256`.
   The trainer uses fixed micro-batches — increase `per_gpu_micro_batch_sequences`
   manually after the first profiler run (auto batch-autotune is not implemented).
-- `sequence_packing` is not implemented; the trainer logs a note and uses dynamic
-  padding instead.
+- **Sequence packing** (`batching.sequence_packing: true`) concatenates documents
+  into fully-packed `source_length` token blocks (EOS-separated), eliminating
+  padding and giving fully static shapes (best with `compile`). Off by default;
+  enable it for maximum throughput once the baseline CE+JEPA run is stable.
 - Prefer DDP for 0.2B; FSDP/ZeRO is unnecessary at this size.
 
 ## What To Watch

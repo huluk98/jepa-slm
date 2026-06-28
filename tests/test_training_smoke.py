@@ -24,7 +24,7 @@ from jepa_slm.config import (
     RuntimeSettings,
     TrainingConfig,
 )
-from jepa_slm.data import TextStreamDataset
+from jepa_slm.data import ByteSmokeTokenizer, PackedTokenDataset, TextStreamDataset
 from jepa_slm.trainer import loss_is_bad, train
 
 
@@ -34,6 +34,7 @@ def _smoke_config(
     resume_from: str | None = None,
     max_loss: float = 0.0,
     divergence_patience: int = 5,
+    sequence_packing: bool = False,
 ) -> TrainingConfig:
     return TrainingConfig(
         model=ModelShape(
@@ -63,6 +64,7 @@ def _smoke_config(
             target_length=24,
             per_gpu_micro_batch_sequences=2,
             gradient_accumulation_steps=2,
+            sequence_packing=sequence_packing,
         ),
         optimizer=OptimizerSettings(learning_rate=5e-4, weight_decay=0.01, warmup_fraction=0.3),
         runtime=RuntimeSettings(
@@ -110,6 +112,23 @@ def _write_distinct_shard(tmp_path: Path, n: int = 24) -> str:
         encoding="utf-8",
     )
     return str(tmp_path / "clean-*.jsonl")
+
+
+def test_packed_dataset_emits_fixed_length_blocks() -> None:
+    settings = DataSettings(dataset="synthetic", max_samples=50, normalize_text=True)
+    tok = ByteSmokeTokenizer(320)
+    blocks = list(PackedTokenDataset(settings, tok, source_length=16))
+
+    assert len(blocks) > 1
+    # Every emitted block is exactly source_length and carries no padding.
+    assert all(len(b["input_ids"]) == 16 for b in blocks)
+    assert all(tok.pad_token_id not in b["input_ids"] for b in blocks)
+
+
+def test_training_runs_with_sequence_packing(tmp_path: Path) -> None:
+    config = _smoke_config(tmp_path, max_steps=3, sequence_packing=True)
+    train(config)  # packed path must train end-to-end without error
+    assert (tmp_path / "smoke" / "step-00000003" / "trainer_state.pt").exists()
 
 
 def test_loss_is_bad_detects_nonfinite_and_threshold() -> None:

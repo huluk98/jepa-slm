@@ -71,6 +71,16 @@ inference* after training, not for the forward/backward of pretraining. All
 configs use bf16; the trainer prints a recommendation if `precision: fp16` is set
 on a bf16-capable GPU.
 
+## Sequence packing
+
+`batching.sequence_packing: true` enables real token-level packing
+(`PackedTokenDataset` + `PackedCollator`): document token ids are concatenated
+with EOS separators and emitted as fully-packed `source_length` blocks, so there
+is no padding waste and every block is a static shape (compile-friendly). Packing
+delegates iteration to the sharded `TextStreamDataset`, so it composes with
+per-rank/per-worker sharding. The trailing partial block is dropped. Off by
+default; flip the flag for maximum throughput.
+
 ## Divergence guard ("stop loss")
 
 `runtime.abort_on_nonfinite` (default true), `runtime.max_loss` (default 0 = off),
