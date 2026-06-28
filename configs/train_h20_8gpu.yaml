@@ -42,6 +42,9 @@ batching:
   # Pad each batch to the longest member (multiple of 8) instead of always 512.
   dynamic_padding: true
   pad_to_multiple_of: 8
+  # Set true to pack documents into full 512-token blocks (no padding waste,
+  # static shapes). Off by default; enable once the baseline run is stable.
+  sequence_packing: false
 
 optimizer:
   name: adamw_torch_fused

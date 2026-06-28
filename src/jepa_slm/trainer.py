@@ -263,8 +263,8 @@ def train(config: TrainingConfig) -> None:
 
     if config.batching.sequence_packing and rank == 0:
         print(
-            "[jepa-slm] note: sequence_packing is requested but not implemented; "
-            "using dynamic padding instead.",
+            "[jepa-slm] sequence packing enabled: emitting fully-packed "
+            f"{config.batching.source_length}-token blocks.",
             flush=True,
         )
 
@@ -298,6 +298,7 @@ def train(config: TrainingConfig) -> None:
         pin_memory=config.performance.pin_memory,
         dynamic_padding=config.batching.dynamic_padding,
         pad_to_multiple_of=config.batching.pad_to_multiple_of,
+        sequence_packing=config.batching.sequence_packing,
     )
 
     model = JepaEncoderDecoder(
