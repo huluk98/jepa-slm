@@ -55,6 +55,7 @@ def span_mask_batch(
             target_count = min(target_count, max_predictions)
 
         chosen: list[int] = []
+        chosen_set: set[int] = set()
         attempts = 0
         while len(chosen) < target_count and attempts < target_count * 8:
             attempts += 1
@@ -62,8 +63,9 @@ def span_mask_batch(
             start = int(valid_positions[start_idx].item())
             span_len = max(1, int(torch.poisson(torch.tensor(float(mean_span_length))).item()))
             for pos in range(start, min(seq_len, start + span_len)):
-                if valid_mask[row, pos] and pos not in chosen:
+                if valid_mask[row, pos] and pos not in chosen_set:
                     chosen.append(pos)
+                    chosen_set.add(pos)
                 if len(chosen) >= target_count:
                     break
 

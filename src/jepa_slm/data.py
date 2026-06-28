@@ -10,13 +10,23 @@ from pathlib import Path
 from typing import Iterable, Iterator, Protocol
 
 import torch
-from torch.utils.data import DataLoader, IterableDataset
+from torch.utils.data import DataLoader, IterableDataset, get_worker_info
 from transformers import AutoTokenizer, T5Tokenizer
 
 from .config import DataSettings
 from .masking import span_mask_batch
 from .modeling import JepaBatch
 from .text_cleaning import clean_text
+
+__all__ = [
+    "ByteSmokeTokenizer",
+    "JepaCollator",
+    "TextStreamDataset",
+    "build_dataloader",
+    "clean_text",
+    "load_tokenizer",
+    "move_batch_to_device",
+]
 
 
 class TokenizerLike(Protocol):
@@ -45,6 +55,7 @@ class ByteSmokeTokenizer:
     pad_token_id = 0
     eos_token_id = 1
     unk_token_id = 2
+    supports_dynamic_padding = False
 
     def __init__(self, vocab_size: int) -> None:
         if vocab_size < 259:
@@ -58,6 +69,7 @@ class ByteSmokeTokenizer:
         padding: str,
         truncation: bool,
         return_tensors: str,
+        pad_to_multiple_of: int | None = None,
     ) -> dict[str, torch.Tensor]:
         if padding != "max_length" or return_tensors != "pt":
             raise ValueError("ByteSmokeTokenizer only supports max_length padding and pt tensors.")
@@ -86,58 +98,108 @@ def load_tokenizer(settings: DataSettings, vocab_size: int | None = None) -> Tok
 
     if settings.tokenizer_name == "internal-byte":
         return ByteSmokeTokenizer(vocab_size or 32_128)
+    use_fast = getattr(settings, "tokenizer_use_fast", True)
     if settings.tokenizer_path:
-        tokenizer = T5Tokenizer(vocab_file=settings.tokenizer_path, extra_ids=100)
+        # T5Tokenizer is the slow SentencePiece tokenizer; prefer the fast
+        # variant when available for a large throughput win.
+        if use_fast:
+            try:
+                from transformers import T5TokenizerFast
+
+                tokenizer = T5TokenizerFast(vocab_file=settings.tokenizer_path, extra_ids=100)
+            except Exception:  # noqa: BLE001 - fall back to the slow tokenizer
+                tokenizer = T5Tokenizer(vocab_file=settings.tokenizer_path, extra_ids=100)
+        else:
+            tokenizer = T5Tokenizer(vocab_file=settings.tokenizer_path, extra_ids=100)
     else:
-        tokenizer = AutoTokenizer.from_pretrained(settings.tokenizer_name, use_fast=False)
+        try:
+            tokenizer = AutoTokenizer.from_pretrained(settings.tokenizer_name, use_fast=use_fast)
+        except Exception:  # noqa: BLE001 - some repos only ship a slow tokenizer
+            tokenizer = AutoTokenizer.from_pretrained(settings.tokenizer_name, use_fast=False)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
     return tokenizer
 
 
 class TextStreamDataset(IterableDataset[dict[str, str]]):
-    """Thin iterable wrapper around Hugging Face streaming datasets."""
+    """Thin iterable wrapper around Hugging Face streaming datasets.
 
-    def __init__(self, settings: DataSettings) -> None:
+    Shards the stream across DDP ranks and DataLoader workers so each consumes a
+    disjoint slice. ``settings.skip_examples`` skips the head of each shard, used
+    on resume so a restarted streaming run does not replay early data.
+    """
+
+    def __init__(self, settings: DataSettings, rank: int = 0, world_size: int = 1) -> None:
         super().__init__()
         self.settings = settings
+        self.rank = max(0, int(rank))
+        self.world_size = max(1, int(world_size))
+
+    def _shard_and_clean(
+        self, raw: Iterable[object], node_sharded: bool
+    ) -> Iterator[dict[str, str]]:
+        worker = get_worker_info()
+        worker_id = worker.id if worker is not None else 0
+        num_workers = worker.num_workers if worker is not None else 1
+
+        if node_sharded:
+            # The HF stream is already split by node; only shard across workers.
+            shard_index, num_shards = worker_id, num_workers
+        else:
+            shard_index = self.rank * num_workers + worker_id
+            num_shards = self.world_size * num_workers
+
+        # skip_examples is a PER-RANK count. Each worker runs __iter__ in its own
+        # process, so split the skip across this rank's workers; the union of
+        # per-worker skips then equals (within < num_workers) the per-rank skip.
+        # Without this, every worker would skip the full count -> N x over-skip.
+        rank_skip = max(0, int(self.settings.skip_examples))
+        skip = rank_skip // num_workers
+        if worker_id < rank_skip % num_workers:
+            skip += 1
+        max_samples = self.settings.max_samples
+        shard_pos = 0
+        emitted = 0
+        for index, value in enumerate(raw):
+            if num_shards > 1 and index % num_shards != shard_index:
+                continue
+            text = clean_text(
+                value,
+                normalize=self.settings.normalize_text,
+                min_chars=self.settings.min_chars,
+                max_chars=self.settings.max_chars,
+            )
+            if text is None:
+                continue
+            if shard_pos < skip:
+                shard_pos += 1
+                continue
+            shard_pos += 1
+            yield {"text": text}
+            emitted += 1
+            if max_samples is not None and emitted >= max_samples:
+                return
+
+    def _synthetic_raw(self) -> Iterator[str]:
+        samples = (
+            "turn on the kitchen light",
+            "set the living room thermostat to 21 degrees",
+            "reject command because the garage fan does not exist",
+            "turn off the bedroom lamp and close the blinds",
+        )
+        count = 0
+        while True:
+            yield samples[count % len(samples)]
+            count += 1
 
     def __iter__(self) -> Iterator[dict[str, str]]:
         if self.settings.dataset == "synthetic":
-            samples = (
-                "turn on the kitchen light",
-                "set the living room thermostat to 21 degrees",
-                "reject command because the garage fan does not exist",
-                "turn off the bedroom lamp and close the blinds",
-            )
-            count = 0
-            while self.settings.max_samples is None or count < self.settings.max_samples:
-                text = clean_text(
-                    samples[count % len(samples)],
-                    normalize=self.settings.normalize_text,
-                    min_chars=self.settings.min_chars,
-                    max_chars=self.settings.max_chars,
-                )
-                count += 1
-                if text is not None:
-                    yield {"text": text}
+            yield from self._shard_and_clean(self._synthetic_raw(), node_sharded=False)
             return
 
         if _is_local_dataset(self.settings.dataset):
-            count = 0
-            for text in _iter_local_texts(self.settings.dataset, self.settings.text_field):
-                text = clean_text(
-                    text,
-                    normalize=self.settings.normalize_text,
-                    min_chars=self.settings.min_chars,
-                    max_chars=self.settings.max_chars,
-                )
-                if text is None:
-                    continue
-                yield {"text": text}
-                count += 1
-                if self.settings.max_samples is not None and count >= self.settings.max_samples:
-                    break
+            raw = _iter_local_texts(self.settings.dataset, self.settings.text_field)
+            yield from self._shard_and_clean(raw, node_sharded=False)
             return
 
         from datasets import load_dataset
@@ -148,23 +210,18 @@ class TextStreamDataset(IterableDataset[dict[str, str]]):
             split=self.settings.split,
             streaming=self.settings.streaming,
         )
-        count = 0
-        for row in dataset:
-            text = row.get(self.settings.text_field)
-            if not text:
-                continue
-            text = clean_text(
-                text,
-                normalize=self.settings.normalize_text,
-                min_chars=self.settings.min_chars,
-                max_chars=self.settings.max_chars,
-            )
-            if text is None:
-                continue
-            yield {"text": text}
-            count += 1
-            if self.settings.max_samples is not None and count >= self.settings.max_samples:
-                break
+        node_sharded = False
+        if self.world_size > 1:
+            try:
+                from datasets.distributed import split_dataset_by_node
+
+                dataset = split_dataset_by_node(dataset, rank=self.rank, world_size=self.world_size)
+                node_sharded = True
+            except Exception:  # noqa: BLE001 - fall back to index-stride sharding
+                node_sharded = False
+
+        raw = (row.get(self.settings.text_field) for row in dataset)
+        yield from self._shard_and_clean(raw, node_sharded=node_sharded)
 
 
 def _is_local_dataset(dataset: str) -> bool:
@@ -202,23 +259,34 @@ class JepaCollator:
     target_length: int
     mask_fraction: float = 0.15
     mean_span_length: int = 3
+    dynamic_padding: bool = True
+    pad_to_multiple_of: int = 8
+
+    def _tokenize(self, texts: list[str], max_length: int) -> dict[str, torch.Tensor]:
+        use_dynamic = self.dynamic_padding and getattr(
+            self.tokenizer, "supports_dynamic_padding", True
+        )
+        if use_dynamic:
+            return self.tokenizer(
+                texts,
+                max_length=max_length,
+                padding="longest",
+                truncation=True,
+                return_tensors="pt",
+                pad_to_multiple_of=self.pad_to_multiple_of,
+            )
+        return self.tokenizer(
+            texts,
+            max_length=max_length,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
+        )
 
     def __call__(self, rows: list[dict[str, str]]) -> JepaBatch:
         texts = [row["text"] for row in rows]
-        source = self.tokenizer(
-            texts,
-            max_length=self.source_length,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt",
-        )
-        target = self.tokenizer(
-            texts,
-            max_length=self.target_length,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt",
-        )
+        source = self._tokenize(texts, self.source_length)
+        target = self._tokenize(texts, self.target_length)
         labels = target["input_ids"].clone()
         labels[labels == self.tokenizer.pad_token_id] = -100
 
@@ -263,16 +331,21 @@ def _shift_right(
     return shifted
 
 
-def move_batch_to_device(batch: JepaBatch, device: torch.device) -> JepaBatch:
+def move_batch_to_device(
+    batch: JepaBatch, device: torch.device, non_blocking: bool = False
+) -> JepaBatch:
+    def to(tensor: torch.Tensor) -> torch.Tensor:
+        return tensor.to(device, non_blocking=non_blocking)
+
     return JepaBatch(
-        input_ids=batch.input_ids.to(device),
-        attention_mask=batch.attention_mask.to(device),
-        labels=batch.labels.to(device),
-        decoder_input_ids=batch.decoder_input_ids.to(device),
-        masked_input_ids=batch.masked_input_ids.to(device),
-        masked_attention_mask=batch.masked_attention_mask.to(device),
-        masked_positions=batch.masked_positions.to(device),
-        masked_position_mask=batch.masked_position_mask.to(device),
+        input_ids=to(batch.input_ids),
+        attention_mask=to(batch.attention_mask),
+        labels=to(batch.labels),
+        decoder_input_ids=to(batch.decoder_input_ids),
+        masked_input_ids=to(batch.masked_input_ids),
+        masked_attention_mask=to(batch.masked_attention_mask),
+        masked_positions=to(batch.masked_positions),
+        masked_position_mask=to(batch.masked_position_mask),
     )
 
 
@@ -283,12 +356,35 @@ def build_dataloader(
     target_length: int,
     batch_size: int,
     num_workers: int = 0,
+    rank: int = 0,
+    world_size: int = 1,
+    prefetch_factor: int | None = None,
+    persistent_workers: bool = False,
+    pin_memory: bool | None = None,
+    dynamic_padding: bool = True,
+    pad_to_multiple_of: int = 8,
 ) -> DataLoader:
-    dataset: Iterable[dict[str, str]] = TextStreamDataset(settings)
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        collate_fn=JepaCollator(tokenizer, source_length, target_length),
-        num_workers=num_workers,
-        pin_memory=torch.cuda.is_available(),
+    dataset: Iterable[dict[str, str]] = TextStreamDataset(
+        settings, rank=rank, world_size=world_size
     )
+    if pin_memory is None:
+        pin_memory = True
+    # Pinned host memory only helps CUDA H2D transfers; avoid the MPS/CPU warning.
+    pin_memory = bool(pin_memory) and torch.cuda.is_available()
+    loader_kwargs: dict[str, object] = {
+        "batch_size": batch_size,
+        "collate_fn": JepaCollator(
+            tokenizer,
+            source_length,
+            target_length,
+            dynamic_padding=dynamic_padding,
+            pad_to_multiple_of=pad_to_multiple_of,
+        ),
+        "num_workers": num_workers,
+        "pin_memory": pin_memory,
+    }
+    if num_workers > 0:
+        loader_kwargs["persistent_workers"] = persistent_workers
+        if prefetch_factor is not None:
+            loader_kwargs["prefetch_factor"] = prefetch_factor
+    return DataLoader(dataset, **loader_kwargs)

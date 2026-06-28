@@ -48,9 +48,23 @@ class JepaSettings:
     top_k_target_layers: int = 4
     normalize_targets: bool = True
     latent_loss: str = "smooth_l1_or_mse"
+    # Predictor sees the full (contextualized) student encoder sequence and a
+    # learned mask marker at masked positions, then reads out predictions at the
+    # masked slots. This is the I-JEPA/data2vec contract; the legacy path only
+    # fed the gathered masked vectors and is kept for ablation via this flag.
+    predictor_full_context: bool = True
     lambda_peak: float = 0.25
     lambda_warmup_fraction: float = 0.10
-    cross_attention_jepa_weight: float = 0.0
+    # Final "CE polish" phase: lambda decays from peak to lambda_final_weight
+    # over the last lambda_final_phase_fraction of training.
+    lambda_final_weight: float = 0.05
+    lambda_final_phase_fraction: float = 0.20
+    # Optional VICReg-style collapse guard on the predicted/student latents.
+    # Off by default (data2vec relies on EMA + target normalization); enable in
+    # production configs for an explicit anti-collapse penalty.
+    vicreg_variance_weight: float = 0.0
+    vicreg_covariance_weight: float = 0.0
+    vicreg_variance_gamma: float = 1.0
     ema_tau_start: float = 0.99
     ema_tau_end: float = 0.9995
 
@@ -65,11 +79,15 @@ class DataSettings:
     text_field: str = "text"
     tokenizer_path: str | None = None
     tokenizer_name: str = "google-t5/t5-small"
+    tokenizer_use_fast: bool = True
     streaming: bool = True
     max_samples: int | None = None
     normalize_text: bool = True
     min_chars: int = 0
     max_chars: int | None = None
+    # Number of (post-clean) examples to skip at the head of each rank's shard.
+    # Used on resume so a restarted streaming run does not replay early data.
+    skip_examples: int = 0
 
 
 @dataclass(frozen=True)
@@ -89,6 +107,22 @@ class RuntimeSettings:
     compile: bool = False
     gradient_checkpointing: bool = True
     device: str = "auto"
+    # Float32 matmul precision and TF32 toggles (honored at trainer startup).
+    matmul_precision: str = "high"
+    allow_tf32: bool = True
+    # Attention backend for the T5 stack: "auto" tries sdpa then falls back to
+    # eager (T5 relative-position bias is incompatible with FlashAttention-2).
+    attn_implementation: str = "auto"
+    # Call torch.cuda.empty_cache() every N optimizer steps when > 0.
+    empty_cache_steps: int = 0
+    # Divergence guard ("stop loss"): skip an optimizer step whose loss is
+    # non-finite (NaN/Inf) or, when max_loss > 0, exceeds max_loss. After
+    # divergence_patience consecutive bad steps, stop training gracefully and
+    # save the last good checkpoint. Protects bf16 runs (no GradScaler) from a
+    # single NaN permanently corrupting the weights.
+    abort_on_nonfinite: bool = True
+    max_loss: float = 0.0
+    divergence_patience: int = 5
 
 
 @dataclass(frozen=True)
@@ -99,6 +133,13 @@ class BatchingSettings:
     target_length: int = 256
     per_gpu_micro_batch_sequences: int = 8
     gradient_accumulation_steps: int = 1
+    # Pad each batch to the longest member (rounded up to pad_to_multiple_of)
+    # instead of always padding to source_length/target_length.
+    dynamic_padding: bool = True
+    pad_to_multiple_of: int = 8
+    # Greedily concatenate cleaned documents up to ~source_length tokens before
+    # tokenizing, to cut padding waste. Falls back to per-document otherwise.
+    sequence_packing: bool = False
 
 
 @dataclass(frozen=True)
@@ -113,6 +154,27 @@ class OptimizerSettings:
 
 
 @dataclass(frozen=True)
+class PerformanceSettings:
+    """DataLoader / input-pipeline throughput knobs."""
+
+    num_workers: int = 0
+    prefetch_factor: int = 2
+    persistent_workers: bool = True
+    pin_memory: bool = True
+
+
+@dataclass(frozen=True)
+class DistributedSettings:
+    """DDP construction knobs."""
+
+    backend: str = "nccl"
+    find_unused_parameters: bool = False
+    gradient_as_bucket_view: bool = True
+    static_graph: bool = True
+    compile: bool = False
+
+
+@dataclass(frozen=True)
 class TrainingConfig:
     """Fully resolved training config used by the pipeline."""
 
@@ -122,6 +184,8 @@ class TrainingConfig:
     runtime: RuntimeSettings = field(default_factory=RuntimeSettings)
     batching: BatchingSettings = field(default_factory=BatchingSettings)
     optimizer: OptimizerSettings = field(default_factory=OptimizerSettings)
+    performance: PerformanceSettings = field(default_factory=PerformanceSettings)
+    distributed: DistributedSettings = field(default_factory=DistributedSettings)
 
 
 def _filter_dataclass_kwargs(cls: type, values: dict[str, Any]) -> dict[str, Any]:
@@ -218,6 +282,7 @@ def load_training_config(path: Path | str) -> TrainingConfig:
     data_raw = dict(raw.get("data", {}))
     hardware_raw = dict(raw.get("hardware", {}))
     distributed_raw = dict(raw.get("distributed", {}))
+    performance_raw = dict(raw.get("performance", {}))
 
     nested_model_path = model_raw.get("config_path")
     if nested_model_path:
@@ -243,6 +308,21 @@ def load_training_config(path: Path | str) -> TrainingConfig:
                 "lambda_warmup_fraction": objective_raw.get(
                     "jepa_warmup_fraction", jepa.lambda_warmup_fraction
                 ),
+                "lambda_final_weight": objective_raw.get(
+                    "jepa_final_phase_weight", jepa.lambda_final_weight
+                ),
+                "lambda_final_phase_fraction": objective_raw.get(
+                    "jepa_final_phase_fraction", jepa.lambda_final_phase_fraction
+                ),
+                "vicreg_variance_weight": objective_raw.get(
+                    "vicreg_variance_weight", jepa.vicreg_variance_weight
+                ),
+                "vicreg_covariance_weight": objective_raw.get(
+                    "vicreg_covariance_weight", jepa.vicreg_covariance_weight
+                ),
+                "vicreg_variance_gamma": objective_raw.get(
+                    "vicreg_variance_gamma", jepa.vicreg_variance_gamma
+                ),
                 "ema_tau_start": objective_raw.get("ema_tau_start", jepa.ema_tau_start),
                 "ema_tau_end": objective_raw.get("ema_tau_end", jepa.ema_tau_end),
             }
@@ -264,6 +344,18 @@ def load_training_config(path: Path | str) -> TrainingConfig:
                 BatchingSettings.gradient_accumulation_steps,
             )
         ),
+        dynamic_padding=bool(
+            batching_raw.get("dynamic_padding", BatchingSettings.dynamic_padding)
+        ),
+        pad_to_multiple_of=int(
+            batching_raw.get("pad_to_multiple_of", BatchingSettings.pad_to_multiple_of)
+        ),
+        sequence_packing=bool(
+            batching_raw.get(
+                "sequence_packing",
+                performance_raw.get("sequence_packing", BatchingSettings.sequence_packing),
+            )
+        ),
     )
 
     if "pilot_dataset" in data_raw and "dataset" not in data_raw:
@@ -283,6 +375,21 @@ def load_training_config(path: Path | str) -> TrainingConfig:
                     "gradient_checkpointing",
                     runtime_raw.get("gradient_checkpointing", True),
                 ),
+                "matmul_precision": hardware_raw.get(
+                    "matmul_precision", runtime_raw.get("matmul_precision", "high")
+                ),
+                "allow_tf32": hardware_raw.get(
+                    "allow_tf32", runtime_raw.get("allow_tf32", True)
+                ),
+                "attn_implementation": hardware_raw.get(
+                    "attention_kernel",
+                    performance_raw.get(
+                        "attention_kernel", runtime_raw.get("attn_implementation", "auto")
+                    ),
+                ),
+                "empty_cache_steps": performance_raw.get(
+                    "empty_cache_steps", runtime_raw.get("empty_cache_steps", 0)
+                ),
             },
         )
     )
@@ -291,6 +398,37 @@ def load_training_config(path: Path | str) -> TrainingConfig:
         optimizer_raw["betas"] = tuple(optimizer_raw["betas"])
     optimizer = OptimizerSettings(**_filter_dataclass_kwargs(OptimizerSettings, optimizer_raw))
 
+    performance = PerformanceSettings(
+        num_workers=int(
+            performance_raw.get(
+                "dataloader_num_workers_per_rank",
+                performance_raw.get("num_workers", PerformanceSettings.num_workers),
+            )
+        ),
+        prefetch_factor=int(
+            performance_raw.get(
+                "dataloader_prefetch_factor",
+                performance_raw.get("prefetch_factor", PerformanceSettings.prefetch_factor),
+            )
+        ),
+        persistent_workers=bool(
+            performance_raw.get("persistent_workers", PerformanceSettings.persistent_workers)
+        ),
+        pin_memory=bool(performance_raw.get("pin_memory", PerformanceSettings.pin_memory)),
+    )
+
+    distributed = DistributedSettings(
+        backend=str(distributed_raw.get("backend", DistributedSettings.backend)),
+        find_unused_parameters=bool(
+            distributed_raw.get("find_unused_parameters", DistributedSettings.find_unused_parameters)
+        ),
+        gradient_as_bucket_view=bool(
+            distributed_raw.get("gradient_as_bucket_view", DistributedSettings.gradient_as_bucket_view)
+        ),
+        static_graph=bool(distributed_raw.get("static_graph", DistributedSettings.static_graph)),
+        compile=bool(distributed_raw.get("compile", runtime.compile)),
+    )
+
     return TrainingConfig(
         model=model,
         jepa=jepa,
@@ -298,4 +436,6 @@ def load_training_config(path: Path | str) -> TrainingConfig:
         runtime=runtime,
         batching=batching,
         optimizer=optimizer,
+        performance=performance,
+        distributed=distributed,
     )

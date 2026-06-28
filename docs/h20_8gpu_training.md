@@ -4,7 +4,13 @@
 
 Use all 8 H20 GPUs efficiently for the 0.2B JEPA-augmented encoder-decoder model.
 
-The default path is **DDP + BF16 + FlashAttention + large per-rank batches**. For this model size, full FSDP or ZeRO-3 is usually counterproductive because the model already fits comfortably on each H20 and aggressive sharding increases communication.
+The default path is **DDP + BF16 + large per-rank batches**. For this model size, full FSDP or ZeRO-3 is usually counterproductive because the model already fits comfortably on each H20 and aggressive sharding increases communication.
+
+> Attention backend: T5's relative-position bias is incompatible with
+> FlashAttention-2 and PyTorch SDPA (`T5ForConditionalGeneration._supports_sdpa`
+> is `False`), so the trainer uses eager attention. The `attention_kernel` config
+> value is tried then falls back to eager automatically — it is not silently
+> ignored. `flash_attn` is therefore optional and unused for this model.
 
 ## Assumptions
 
@@ -47,16 +53,29 @@ torchrun --standalone --nnodes=1 --nproc_per_node=8 -m jepa_slm.train --config c
 
 ## Utilization Strategy
 
-- Use BF16 for Tensor Core throughput and stable training.
-- Use FlashAttention 2 when available.
-- Keep `gradient_accumulation_steps=1` initially; H20 memory should allow large micro-batches.
-- Start at `64` sequences per GPU with `source_length=512` and `target_length=256`.
-- Current trainer uses fixed micro-batches. Increase `per_gpu_micro_batch_sequences`
-  manually after the first profiler run; automatic batch autotune is left disabled
-  until it is implemented in code.
-- Sequence packing is also left disabled in the executable trainer for now. Add it
-  after the baseline CE+JEPA path is stable.
-- Prefer DDP for 0.2B. Use `configs/deepspeed_h20_zero1.json` only if optimizer state or larger variants become the bottleneck.
+The trainer now honors the throughput knobs that were previously dead config
+(see `docs/optimization_changes.md`):
+
+- **BF16** for Tensor Core throughput and stable training (no GradScaler needed).
+- **TF32 matmul** is enabled at startup (`hardware.allow_tf32`, `matmul_precision`).
+- **Per-rank data sharding** is active, so 8 GPUs see 8 disjoint data slices —
+  the headline `approximate_tokens_per_step` is now real, not 8x optimistic.
+- **DataLoader workers** (`performance.dataloader_num_workers_per_rank: 8`),
+  `prefetch_factor`, and `persistent_workers` keep the GPUs fed; the fast
+  tokenizer (`tokenizer_use_fast: true`) is used.
+- **Dynamic padding** (`batching.dynamic_padding: true`) pads to the longest
+  member of each batch (multiple of 8), cutting padding FLOPs vs fixed 512.
+- **`torch.compile`** runs with `dynamic=True`; the JEPA loss is computed over the
+  full (static-shaped) sequence, so variable padded lengths do not trigger
+  recompilation.
+- `gradient_accumulation_steps=1` initially; if you raise it, `no_sync()` already
+  skips the all-reduce on non-final micro-steps.
+- Start at `64` sequences per GPU with `source_length=512`, `target_length=256`.
+  The trainer uses fixed micro-batches — increase `per_gpu_micro_batch_sequences`
+  manually after the first profiler run (auto batch-autotune is not implemented).
+- `sequence_packing` is not implemented; the trainer logs a note and uses dynamic
+  padding instead.
+- Prefer DDP for 0.2B; FSDP/ZeRO is unnecessary at this size.
 
 ## What To Watch
 

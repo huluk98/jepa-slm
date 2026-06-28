@@ -14,7 +14,14 @@ distributed:
   backend: nccl
   find_unused_parameters: false
   gradient_as_bucket_view: true
+  static_graph: true
   compile: true
+
+performance:
+  dataloader_num_workers_per_rank: 8
+  dataloader_prefetch_factor: 4
+  pin_memory: true
+  persistent_workers: true
 
 model:
   config_path: configs/model_0_2b.yaml
@@ -27,6 +34,8 @@ batching:
   gradient_accumulation_steps: 1
   global_batch_sequences: 256
   approximate_tokens_per_step: 196608
+  dynamic_padding: true
+  pad_to_multiple_of: 8
 
 optimizer:
   name: adamw_torch_fused
@@ -42,8 +51,11 @@ objective:
   jepa_weight_peak: 0.25
   jepa_warmup_fraction: 0.10
   jepa_final_phase_weight: 0.05
+  jepa_final_phase_fraction: 0.20
   ema_tau_start: 0.99
   ema_tau_end: 0.9995
+  vicreg_variance_weight: 0.04
+  vicreg_covariance_weight: 0.01
 
 data:
   dataset: "data/clean/fineweb-edu-sample10bt-100k/clean-*.jsonl"
@@ -52,6 +64,7 @@ data:
   text_field: text
   tokenizer_name: google-t5/t5-small
   tokenizer_path: null
+  tokenizer_use_fast: true
   streaming: true
   normalize_text: false
   min_chars: 0
