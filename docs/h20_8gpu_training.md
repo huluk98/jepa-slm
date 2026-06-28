@@ -81,10 +81,17 @@ The trainer now honors the throughput knobs that were previously dead config
 
 ## What To Watch
 
-- GPU utilization should stay high after data pipeline warmup.
-- HBM usage should land near 85-92% after batch autotune.
-- If utilization is low and memory is available, increase `per_gpu_micro_batch_sequences`.
-- If utilization is low but memory is full, reduce padding with better packing.
+The per-step log line now reports the key signals directly:
+
+- **`tok_per_s`** — source tokens/sec. If it's low and `gpu_mem_gb` has headroom,
+  raise `per_gpu_micro_batch_sequences`. If it dips between steps, the data
+  pipeline is starving the GPU (check workers / storage / enable packing).
+- **`gpu_mem_gb`** — peak allocated GiB per window. Aim to use most of the ~96 GB;
+  raise the micro-batch until you're near the ceiling.
+- **`encoder_std` / `predictor_std`** — the collapse monitor. If either trends
+  toward ~0, raise `objective.vicreg_variance_weight`.
+- **`eval_ce`** — set `data.eval_dataset` + `runtime.eval_every_steps` to track
+  validation CE; it must keep falling, and ideally beat a CE-only baseline.
 - If rank-to-rank time varies, check dataloader workers, storage throughput, and NCCL topology.
 
 ## Dataset Path

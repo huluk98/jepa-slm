@@ -35,6 +35,8 @@ def _smoke_config(
     max_loss: float = 0.0,
     divergence_patience: int = 5,
     sequence_packing: bool = False,
+    eval_every_steps: int = 0,
+    eval_dataset: str | None = None,
 ) -> TrainingConfig:
     return TrainingConfig(
         model=ModelShape(
@@ -57,7 +59,10 @@ def _smoke_config(
             vicreg_covariance_weight=0.01,
         ),
         data=DataSettings(
-            dataset="synthetic", tokenizer_name="internal-byte", max_samples=200
+            dataset="synthetic",
+            tokenizer_name="internal-byte",
+            max_samples=200,
+            eval_dataset=eval_dataset,
         ),
         batching=BatchingSettings(
             source_length=24,
@@ -79,6 +84,8 @@ def _smoke_config(
             resume_from=resume_from,
             max_loss=max_loss,
             divergence_patience=divergence_patience,
+            eval_every_steps=eval_every_steps,
+            eval_max_batches=2,
         ),
     )
 
@@ -129,6 +136,21 @@ def test_training_runs_with_sequence_packing(tmp_path: Path) -> None:
     config = _smoke_config(tmp_path, max_steps=3, sequence_packing=True)
     train(config)  # packed path must train end-to-end without error
     assert (tmp_path / "smoke" / "step-00000003" / "trainer_state.pt").exists()
+
+
+def test_training_logs_throughput(tmp_path: Path, capsys) -> None:
+    train(_smoke_config(tmp_path, max_steps=2))
+    out = capsys.readouterr().out
+    assert "'tok_per_s'" in out  # tokens/sec is reported every log step
+
+
+def test_eval_ce_runs_when_eval_dataset_set(tmp_path: Path, capsys) -> None:
+    config = _smoke_config(
+        tmp_path, max_steps=2, eval_every_steps=1, eval_dataset="synthetic"
+    )
+    train(config)
+    out = capsys.readouterr().out
+    assert "'eval_ce'" in out  # periodic validation-CE is logged
 
 
 def test_loss_is_bad_detects_nonfinite_and_threshold() -> None:
