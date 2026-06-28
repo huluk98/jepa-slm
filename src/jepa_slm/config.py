@@ -88,6 +88,9 @@ class DataSettings:
     # Number of (post-clean) examples to skip at the head of each rank's shard.
     # Used on resume so a restarted streaming run does not replay early data.
     skip_examples: int = 0
+    # Optional held-out source for periodic validation-CE (path/glob or HF name).
+    # When set together with runtime.eval_every_steps > 0, the trainer logs eval_ce.
+    eval_dataset: str | None = None
 
 
 @dataclass(frozen=True)
@@ -102,6 +105,7 @@ class RuntimeSettings:
     save_on_stop: bool = True
     log_every_steps: int = 10
     eval_every_steps: int = 0
+    eval_max_batches: int = 50
     seed: int = 13
     precision: str = "bf16"
     compile: bool = False

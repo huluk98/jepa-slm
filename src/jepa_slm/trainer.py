@@ -6,6 +6,7 @@ import math
 import os
 import random
 import signal
+import time
 from contextlib import nullcontext
 from dataclasses import asdict
 from pathlib import Path
@@ -239,6 +240,47 @@ def loss_is_bad(loss_value: float, max_loss: float) -> bool:
     return max_loss > 0.0 and loss_value > max_loss
 
 
+@torch.no_grad()
+def run_eval(
+    model: JepaEncoderDecoder,
+    eval_loader,
+    device: torch.device,
+    dtype: torch.dtype | None,
+    max_batches: int,
+) -> float | None:
+    """Mean validation cross-entropy over up to max_batches, averaged across ranks.
+
+    Uses the unwrapped model (no DDP gradient sync). Returns None if no batches.
+    """
+    was_training = model.training
+    model.eval()
+    total = torch.zeros((), device=device)
+    count = torch.zeros((), device=device)
+    try:
+        for index, batch in enumerate(eval_loader):
+            if index >= max_batches:
+                break
+            batch = move_batch_to_device(batch, device)
+            with torch.autocast(device_type=device.type, dtype=dtype, enabled=dtype is not None):
+                output = model(batch, jepa_weight=0.0)
+            total = total + output.ce_loss.detach().float()
+            count = count + 1
+    finally:
+        if was_training:
+            model.train()
+            # Keep the EMA target encoder frozen in eval (architectural contract);
+            # model.train() above would otherwise flip it back to train mode.
+            ema = getattr(model, "ema_encoder", None)
+            if ema is not None:
+                ema.eval()
+    if dist.is_available() and dist.is_initialized():
+        dist.all_reduce(total, op=dist.ReduceOp.SUM)
+        dist.all_reduce(count, op=dist.ReduceOp.SUM)
+    if count.item() == 0:
+        return None
+    return float((total / count).item())
+
+
 def train(config: TrainingConfig) -> None:
     install_signal_handlers()
     rank, local_rank, world_size = setup_distributed(config.distributed.backend)
@@ -301,6 +343,33 @@ def train(config: TrainingConfig) -> None:
         sequence_packing=config.batching.sequence_packing,
     )
 
+    eval_loader = None
+    if config.runtime.eval_every_steps > 0 and config.data.eval_dataset:
+        from dataclasses import replace as _replace
+
+        eval_settings = _replace(
+            config.data, dataset=config.data.eval_dataset, skip_examples=0
+        )
+        eval_loader = build_dataloader(
+            eval_settings,
+            tokenizer,
+            source_length=config.batching.source_length,
+            target_length=config.batching.target_length,
+            batch_size=config.batching.per_gpu_micro_batch_sequences,
+            num_workers=0,
+            rank=rank,
+            world_size=world_size,
+            dynamic_padding=config.batching.dynamic_padding,
+            pad_to_multiple_of=config.batching.pad_to_multiple_of,
+            sequence_packing=config.batching.sequence_packing,
+        )
+    elif config.runtime.eval_every_steps > 0 and rank == 0:
+        print(
+            "[jepa-slm] eval_every_steps is set but data.eval_dataset is not; "
+            "skipping validation-CE.",
+            flush=True,
+        )
+
     model = JepaEncoderDecoder(
         config.model,
         config.jepa,
@@ -352,6 +421,12 @@ def train(config: TrainingConfig) -> None:
     guard_enabled = config.runtime.abort_on_nonfinite or config.runtime.max_loss > 0
     step_bad = False  # any micro in the current accumulation window was bad
     bad_in_row = 0  # consecutive diverging optimizer steps
+
+    # Throughput accounting (source tokens the model computed over per step).
+    tokens_per_step = world_size * accumulation * micro_batch * config.batching.source_length
+    tokens_seen = 0
+    tokens_at_window = 0
+    window_start = time.perf_counter()
 
     try:
         while step < max_steps and not stop_training:
@@ -437,22 +512,50 @@ def train(config: TrainingConfig) -> None:
 
                 tau = ema_tau(step, max_steps, config.jepa.ema_tau_start, config.jepa.ema_tau_end)
                 raw_model.update_ema_encoder(tau)
+                tokens_seen += tokens_per_step
 
                 if rank == 0 and step % config.runtime.log_every_steps == 0:
-                    print(
-                        {
-                            "step": step,
-                            "loss": round(float(output.loss.detach().cpu()), 5),
-                            "ce_loss": round(float(output.ce_loss.detach().cpu()), 5),
-                            "jepa_loss": round(float(output.jepa_loss.detach().cpu()), 5),
-                            "vicreg_loss": round(float(output.vicreg_loss.detach().cpu()), 5),
-                            "jepa_weight": round(jepa_weight, 5),
-                            "encoder_std": round(float(output.encoder_repr_std.cpu()), 5),
-                            "predictor_std": round(float(output.predictor_repr_std.cpu()), 5),
-                            "lr": optimizer.param_groups[0]["lr"],
-                        },
-                        flush=True,
+                    now = time.perf_counter()
+                    elapsed = now - window_start
+                    tok_per_s = (tokens_seen - tokens_at_window) / elapsed if elapsed > 0 else 0.0
+                    window_start = now
+                    tokens_at_window = tokens_seen
+                    record = {
+                        "step": step,
+                        "loss": round(float(output.loss.detach().cpu()), 5),
+                        "ce_loss": round(float(output.ce_loss.detach().cpu()), 5),
+                        "jepa_loss": round(float(output.jepa_loss.detach().cpu()), 5),
+                        "vicreg_loss": round(float(output.vicreg_loss.detach().cpu()), 5),
+                        "jepa_weight": round(jepa_weight, 5),
+                        "encoder_std": round(float(output.encoder_repr_std.cpu()), 5),
+                        "predictor_std": round(float(output.predictor_repr_std.cpu()), 5),
+                        "lr": optimizer.param_groups[0]["lr"],
+                        "tok_per_s": round(tok_per_s),
+                    }
+                    if device.type == "cuda":
+                        record["gpu_mem_gb"] = round(
+                            torch.cuda.max_memory_allocated(device) / 1024**3, 2
+                        )
+                        torch.cuda.reset_peak_memory_stats(device)
+                    print(record, flush=True)
+
+                # Periodic validation cross-entropy (collective: all ranks run it).
+                if (
+                    eval_loader is not None
+                    and config.runtime.eval_every_steps > 0
+                    and step % config.runtime.eval_every_steps == 0
+                ):
+                    eval_ce = run_eval(
+                        raw_model, eval_loader, device, dtype, config.runtime.eval_max_batches
                     )
+                    if rank == 0 and eval_ce is not None:
+                        print({"step": step, "eval_ce": round(eval_ce, 5)}, flush=True)
+                    # Don't let eval wall-time / memory pollute the next throughput
+                    # window or the next peak-memory reading.
+                    window_start = time.perf_counter()
+                    tokens_at_window = tokens_seen
+                    if device.type == "cuda":
+                        torch.cuda.reset_peak_memory_stats(device)
 
                 step += 1
                 if (

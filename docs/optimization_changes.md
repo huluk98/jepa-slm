@@ -81,6 +81,16 @@ delegates iteration to the sharded `TextStreamDataset`, so it composes with
 per-rank/per-worker sharding. The trailing partial block is dropped. Off by
 default; flip the flag for maximum throughput.
 
+## Observability / metrics
+
+The per-step log now includes **`tok_per_s`** (source tokens/sec processed) and,
+on CUDA, **`gpu_mem_gb`** (peak allocated GiB, reset each window) so you can spot
+data-pipeline starvation and tune batch size live. When `runtime.eval_every_steps
+> 0` and `data.eval_dataset` is set, the trainer periodically runs
+`run_eval` over `runtime.eval_max_batches` batches and logs **`eval_ce`**
+(validation cross-entropy, averaged across DDP ranks via all-reduce) — the gate
+the docs recommend for "does the auxiliary loss damage generation?".
+
 ## Divergence guard ("stop loss")
 
 `runtime.abort_on_nonfinite` (default true), `runtime.max_loss` (default 0 = off),

@@ -86,6 +86,8 @@ data:
   normalize_text: true
   min_chars: 200
   max_chars: 20000
+  # Set to a held-out source (path/glob or HF name) to enable periodic eval_ce.
+  eval_dataset: null
 
 runtime:
   output_dir: outputs/jepa-slm-h20
@@ -94,6 +96,9 @@ runtime:
   max_steps: 50000
   save_every_steps: 2000
   log_every_steps: 10
+  # Validation-CE every N steps (needs data.eval_dataset set); 0 disables.
+  eval_every_steps: 0
+  eval_max_batches: 50
   seed: 13
 
 logging:
