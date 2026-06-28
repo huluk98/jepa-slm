@@ -268,6 +268,11 @@ def run_eval(
     finally:
         if was_training:
             model.train()
+            # Keep the EMA target encoder frozen in eval (architectural contract);
+            # model.train() above would otherwise flip it back to train mode.
+            ema = getattr(model, "ema_encoder", None)
+            if ema is not None:
+                ema.eval()
     if dist.is_available() and dist.is_initialized():
         dist.all_reduce(total, op=dist.ReduceOp.SUM)
         dist.all_reduce(count, op=dist.ReduceOp.SUM)
@@ -545,6 +550,12 @@ def train(config: TrainingConfig) -> None:
                     )
                     if rank == 0 and eval_ce is not None:
                         print({"step": step, "eval_ce": round(eval_ce, 5)}, flush=True)
+                    # Don't let eval wall-time / memory pollute the next throughput
+                    # window or the next peak-memory reading.
+                    window_start = time.perf_counter()
+                    tokens_at_window = tokens_seen
+                    if device.type == "cuda":
+                        torch.cuda.reset_peak_memory_stats(device)
 
                 step += 1
                 if (

@@ -387,11 +387,19 @@ class PackedCollator:
     mask_fraction: float = 0.15
     mean_span_length: int = 3
 
+    def __post_init__(self) -> None:
+        if self.target_length > self.source_length:
+            raise ValueError(
+                "sequence packing requires target_length <= source_length "
+                f"(got target_length={self.target_length}, source_length={self.source_length})."
+            )
+
     def __call__(self, rows: list[dict[str, list]]) -> JepaBatch:
         input_ids = torch.tensor([row["input_ids"] for row in rows], dtype=torch.long)
         attention_mask = torch.ones_like(input_ids)
+        # Packed blocks are fully real (no padding), so there is nothing to mask to
+        # -100; doing so would wrongly drop EOS separators when pad_token_id == eos.
         labels = input_ids[:, : self.target_length].clone()
-        labels[labels == self.tokenizer.pad_token_id] = -100
 
         decoder_input_ids = _shift_right(
             labels,
