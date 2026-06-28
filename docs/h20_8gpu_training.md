@@ -40,10 +40,27 @@ bash scripts/install_h20_env.sh
 
 ## Launch
 
+One command — checks the env, prepares data only if the config needs local
+shards (the 8-GPU config streams, so it does not), then launches:
+
 ```bash
 conda activate jepa-h20
+bash scripts/run_training.sh                     # 8x H20, streaming, no data prep
+
+# Preview the plan without running:
+DRY_RUN=1 bash scripts/run_training.sh
+```
+
+The lower-level launcher is still available if you prefer it:
+
+```bash
 bash scripts/launch_h20_8gpu.sh configs/train_h20_8gpu.yaml
 ```
+
+> Data readiness: the 8-GPU config streams `HuggingFaceFW/fineweb-edu` and cleans
+> on the fly (NFKC + control-strip + length filter), so there is nothing to
+> pre-clean. Configs that read `data/clean/*.jsonl` need those shards built first;
+> `run_training.sh` does that automatically when they are missing.
 
 This launches:
 

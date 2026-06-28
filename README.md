@@ -60,6 +60,24 @@ Train from cleaned shards:
 PYTHONPATH=src python -m jepa_slm.train --config configs/train_clean_local.yaml
 ```
 
+### One-command training
+
+`scripts/run_training.sh` is the single entry point: it checks the env, prepares
+cleaned shards **only if the config needs local data and they are missing**, then
+launches distributed training. The default 8-GPU config streams its corpus, so no
+data step is required.
+
+```bash
+# 8x H20, streaming corpus — no local data prep needed:
+bash scripts/run_training.sh                      # = configs/train_h20_8gpu.yaml
+
+# A config that reads local cleaned shards — auto-cleans them first if absent:
+bash scripts/run_training.sh configs/train_h20_4gpu.yaml
+
+# Preview what it will do without running anything:
+DRY_RUN=1 bash scripts/run_training.sh
+```
+
 Generate the smaller HomeBench-style command model verification report:
 
 ```bash
