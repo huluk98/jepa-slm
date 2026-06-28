@@ -3,6 +3,16 @@ from pathlib import Path
 from jepa_slm.config import load_training_config
 
 
+def test_launcher_data_source_classification() -> None:
+    # run_training.sh decides "stream vs clean-first" from these resolved values.
+    streaming = load_training_config(Path("configs/train_h20_8gpu.yaml"))
+    assert streaming.data.dataset == "HuggingFaceFW/fineweb-edu"
+    assert not any(ch in streaming.data.dataset for ch in "*?[")  # not a local glob
+
+    local = load_training_config(Path("configs/train_h20_4gpu.yaml"))
+    assert "*" in local.data.dataset  # local cleaned-shard glob -> needs cleaning
+
+
 def test_load_full_h20_config_resolves_nested_model() -> None:
     config = load_training_config(Path("configs/train_h20_8gpu.yaml"))
 
