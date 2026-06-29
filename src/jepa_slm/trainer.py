@@ -92,6 +92,17 @@ def precision_dtype(precision: str) -> torch.dtype | None:
     return None
 
 
+def param_storage_dtype(config: TrainingConfig) -> torch.dtype | None:
+    """Resolve the requested weight-storage dtype.
+
+    Returns ``None`` for the default fp32 storage (keep fp32 master weights),
+    or a low-precision dtype when the config asks the optimizer state itself to
+    live in bf16/fp16 to fit a tight memory budget.
+    """
+
+    return precision_dtype(getattr(config.runtime, "param_dtype", "fp32") or "fp32")
+
+
 def build_optimizer(model: JepaEncoderDecoder, config: TrainingConfig) -> AdamW:
     """AdamW with decoupled weight decay applied only to matmul weights.
 
@@ -381,6 +392,19 @@ def train(config: TrainingConfig) -> None:
     if config.runtime.gradient_checkpointing:
         model.gradient_checkpointing_enable()
     model.to(device)
+    storage_dtype = param_storage_dtype(config)
+    if storage_dtype is not None:
+        # Store weights (and therefore grads + AdamW moments) in low precision to
+        # shrink the static optimizer-state footprint for tight memory budgets.
+        # autocast still governs per-op compute precision on top of this.
+        model.to(dtype=storage_dtype)
+        if rank == 0:
+            print(
+                f"[jepa-slm] param_dtype={config.runtime.param_dtype}: storing weights and "
+                "optimizer state in low precision to fit a tight memory budget. "
+                "Use fp32 storage for best numerics when memory allows.",
+                flush=True,
+            )
     if config.runtime.compile and hasattr(torch, "compile"):
         # dynamic=True so variable padded lengths do not trigger recompilation.
         model = torch.compile(model, dynamic=True)

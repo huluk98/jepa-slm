@@ -108,6 +108,15 @@ class RuntimeSettings:
     eval_max_batches: int = 50
     seed: int = 13
     precision: str = "bf16"
+    # Storage dtype for the *weights* and therefore the optimizer state. The
+    # default "fp32" keeps fp32 master weights with bf16/fp16 autocast compute
+    # (best numerics). Set to "bf16" to also store the weights, gradients, and
+    # AdamW moments in bf16 -- this roughly halves the static optimizer-state
+    # footprint (~16 -> ~8 bytes/param), which is what lets the 0.2B model train
+    # inside a tight (e.g. 6 GiB) per-GPU memory budget. Trade-off: bf16 master
+    # weights have ~3 decimal digits of precision, so very small updates can be
+    # lost; prefer fp32 storage whenever the memory budget allows.
+    param_dtype: str = "fp32"
     compile: bool = False
     gradient_checkpointing: bool = True
     device: str = "auto"
@@ -374,6 +383,9 @@ def load_training_config(path: Path | str) -> TrainingConfig:
             {
                 **runtime_raw,
                 "precision": hardware_raw.get("precision", runtime_raw.get("precision", "bf16")),
+                "param_dtype": hardware_raw.get(
+                    "param_dtype", runtime_raw.get("param_dtype", "fp32")
+                ),
                 "compile": distributed_raw.get("compile", runtime_raw.get("compile", False)),
                 "gradient_checkpointing": training_raw.get(
                     "gradient_checkpointing",

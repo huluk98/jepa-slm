@@ -1,0 +1,113 @@
+# 4x H20, GPUs 0-3, tight ~6 GiB-per-GPU budget ("for now" / shared node).
+#
+# How this fits the full 0.2B model into ~6 GiB:
+#   * param_dtype: bf16  -> weights, grads, and AdamW moments are stored in bf16,
+#                           halving the static optimizer-state footprint
+#                           (~16 -> ~8 bytes/param). This is the main enabler.
+#   * micro batch = 1 + gradient_accumulation_steps = 16 -> global batch of 64
+#                           sequences (1 x 4 GPUs x 16) without holding 4-64
+#                           sequences of activations at once.
+#   * gradient_checkpointing: true, compile: false (compile inflates peak memory
+#                           and compile-time on a constrained slice).
+#   * streaming fineweb-edu -> no local preprocessing / no disk for shards.
+#
+# Estimated peak ~3.5-3.7 GiB/GPU, leaving headroom for CUDA context + NCCL.
+# Launch (pins CUDA_VISIBLE_DEVICES=0,1,2,3, nproc=4):
+#   bash scripts/launch_h20_4gpu.sh configs/train_h20_4gpu_6gb.yaml
+#
+# When you get the full 96 GiB H20s back, switch to configs/train_h20_4gpu.yaml
+# (fp32 master weights, micro batch 64) for best numerics/throughput.
+
+hardware:
+  accelerator: nvidia_h20
+  num_nodes: 1
+  gpus_per_node: 4
+  assumed_memory_mib_per_gpu: 6144
+  precision: bf16          # autocast compute dtype
+  param_dtype: bf16        # store weights + optimizer state in bf16 (memory win)
+  matmul_precision: high
+  allow_tf32: true
+
+distributed:
+  launcher: torchrun
+  strategy: ddp
+  why: "0.2B in bf16 fits ~6 GiB/GPU; 4-way DDP keeps the trainer simple."
+  backend: nccl
+  find_unused_parameters: false
+  gradient_as_bucket_view: true
+  static_graph: true
+  compile: false           # off: lower peak memory + no compile overhead on a tight slice
+
+performance:
+  dataloader_num_workers_per_rank: 4
+  dataloader_prefetch_factor: 2
+  pin_memory: true
+  persistent_workers: true
+  empty_cache_steps: 50     # periodically release cached blocks to curb fragmentation
+
+model:
+  config_path: configs/model_0_2b.yaml
+  expected_trainable_params: 200200000
+
+batching:
+  source_length: 512
+  target_length: 256
+  per_gpu_micro_batch_sequences: 1
+  gradient_accumulation_steps: 16
+  global_batch_sequences: 64
+  dynamic_padding: true
+  pad_to_multiple_of: 8
+
+optimizer:
+  name: adamw_torch_fused
+  learning_rate: 0.0004
+  betas: [0.9, 0.95]
+  weight_decay: 0.1
+  grad_clip_norm: 1.0
+  scheduler: cosine
+  warmup_fraction: 0.02
+
+objective:
+  ce_weight: 1.0
+  jepa_weight_peak: 0.25
+  jepa_warmup_fraction: 0.10
+  jepa_final_phase_weight: 0.05
+  jepa_final_phase_fraction: 0.20
+  ema_tau_start: 0.99
+  ema_tau_end: 0.9995
+  vicreg_variance_weight: 0.04
+  vicreg_covariance_weight: 0.01
+
+data:
+  dataset: "HuggingFaceFW/fineweb-edu"   # streamed + cleaned on-the-fly: no local prep
+  subset: sample-10BT
+  split: train
+  text_field: text
+  tokenizer_name: google-t5/t5-small
+  tokenizer_path: null
+  tokenizer_use_fast: true
+  streaming: true
+  normalize_text: false
+  min_chars: 0
+  max_chars: null
+
+runtime:
+  output_dir: outputs/jepa-slm-h20-4gpu-6gb
+  max_steps: 100000
+  save_every_steps: 250
+  resume_from: null
+  stop_file: outputs/jepa-slm-h20-4gpu-6gb/STOP
+  save_on_stop: true
+  log_every_steps: 10
+  seed: 13
+  param_dtype: bf16
+  compile: false
+  gradient_checkpointing: true
+  empty_cache_steps: 50
+
+logging:
+  log_every_steps: 10
+  checkpoint_every_steps: 250
+  report_tokens_per_second: true
+  report_gpu_memory: true
+  report_jepa_variance: true

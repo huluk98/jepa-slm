@@ -96,7 +96,7 @@ Check an 8x H20 node:
 python3 scripts/h20_sanity_check.py
 ```
 
-Launch 4x H20 DDP training:
+Launch 4x H20 DDP training (pins `CUDA_VISIBLE_DEVICES=0,1,2,3`, `nproc=4`):
 
 ```bash
 bash scripts/launch_h20_4gpu.sh
@@ -107,6 +107,24 @@ Stop that run safely:
 ```bash
 touch outputs/jepa-slm-h20-4gpu/STOP
 ```
+
+### Tight per-GPU memory (e.g. ~6 GiB on a shared node)
+
+`configs/train_h20_4gpu_6gb.yaml` trains the full 0.2B model on GPUs 0-3 inside a
+~6 GiB-per-GPU slice. It stores weights + AdamW state in **bf16** (`param_dtype:
+bf16`, halving the static optimizer footprint), uses micro-batch 1 with
+gradient accumulation, keeps gradient checkpointing on, disables `torch.compile`,
+and **streams** fineweb-edu (no local data prep). Estimated peak ~3.5-3.7 GiB/GPU.
+
+```bash
+bash scripts/launch_h20_4gpu.sh configs/train_h20_4gpu_6gb.yaml
+# stop it safely:
+touch outputs/jepa-slm-h20-4gpu-6gb/STOP
+```
+
+bf16 weight storage trades a little numerical precision for the memory win; once
+you have the full 96 GiB H20s back, use `configs/train_h20_4gpu.yaml` (fp32
+master weights, micro-batch 64) instead.
 
 Resume a stopped 4x H20 run:
 
@@ -222,15 +240,33 @@ python scripts/train_sentencepiece_tokenizer.py \
   --extra-ids 100
 ```
 
-## 8x H20 Environment
+## H20 Environment (CUDA 12.4)
 
-Create the training environment:
+`requirements.txt` is the complete runtime package set, pinned for the CUDA 12.4
+H20 stack. Two supported install paths:
+
+**conda (recommended on the GPU node — pulls CUDA 12.4 + NCCL via conda):**
 
 ```bash
-conda env create -f envs/jepa-h20-cu124.yml
+bash scripts/install_h20_env.sh        # creates the 'jepa-h20' env from envs/jepa-h20-cu124.yml
 conda activate jepa-h20
-python -m pip install --no-build-isolation -r envs/requirements-h20-optional.txt
 python scripts/h20_sanity_check.py
+```
+
+**pure pip into an existing CUDA 12.4 env:**
+
+```bash
+pip install -r requirements.txt        # the cu124 extra-index resolves torch to the CUDA 12.4 wheels
+python scripts/h20_sanity_check.py
+```
+
+The trainer is plain torch DDP + AdamW, so `flash-attn`, `transformer-engine`,
+and `deepspeed` are **not** required (T5's relative-position bias is incompatible
+with FlashAttention-2; the trainer uses sdpa/eager attention). The first two
+remain available for unrelated experiments:
+
+```bash
+python -m pip install --no-build-isolation -r envs/requirements-h20-optional.txt
 ```
 
 Launch the 8-GPU training scaffold:
