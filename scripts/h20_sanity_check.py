@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Check that the local machine is ready for an 8x H20 training run."""
+"""Check that the local machine is ready for an H20 training run (4x or 8x).
+
+By default this passes on any node with >=1 CUDA GPU and BF16 support. Set
+EXPECT_GPUS=N to print a NOTE when fewer than N GPUs are visible, and
+STRICT_GPUS=1 to make that count mismatch a hard failure (exit 1).
+"""
 
 from __future__ import annotations
 
@@ -27,9 +32,14 @@ def main() -> int:
 
     count = torch.cuda.device_count()
     print(f"GPU count: {count}")
-    if count < 8:
-        print("Expected 8 visible GPUs for the H20 launch config.")
-        return 1
+
+    expect = int(os.environ.get("EXPECT_GPUS", "0") or 0)
+    strict = os.environ.get("STRICT_GPUS", "0") == "1"
+    if expect and count < expect:
+        print(f"NOTE: {count} GPU(s) visible, fewer than EXPECT_GPUS={expect}.")
+        if strict:
+            print("STRICT_GPUS=1: failing on the GPU-count mismatch.")
+            return 1
 
     for idx in range(count):
         props = torch.cuda.get_device_properties(idx)

@@ -7,7 +7,26 @@ pytest.importorskip("transformers")
 
 from jepa_slm.config import JepaSettings, ModelShape, TrainingConfig
 from jepa_slm.modeling import JepaEncoderDecoder
-from jepa_slm.trainer import load_checkpoint, save_checkpoint
+from jepa_slm.trainer import load_checkpoint, prune_old_checkpoints, save_checkpoint
+
+
+def test_prune_old_checkpoints_keeps_last_n(tmp_path: Path) -> None:
+    for step in (250, 500, 5000, 10000, 100000):
+        (tmp_path / f"step-{step:08d}").mkdir()
+    (tmp_path / "not-a-checkpoint").mkdir()  # must be ignored
+
+    prune_old_checkpoints(tmp_path, keep_last=2)
+
+    remaining = sorted(p.name for p in tmp_path.glob("step-*"))
+    assert remaining == ["step-00010000", "step-00100000"]  # newest 2 by step number
+    assert (tmp_path / "not-a-checkpoint").exists()
+
+
+def test_prune_old_checkpoints_keep_all_when_nonpositive(tmp_path: Path) -> None:
+    for step in (1, 2, 3):
+        (tmp_path / f"step-{step:08d}").mkdir()
+    prune_old_checkpoints(tmp_path, keep_last=0)  # 0 = keep everything
+    assert len(list(tmp_path.glob("step-*"))) == 3
 
 
 def test_checkpoint_loads_with_torch_safe_default(tmp_path: Path) -> None:

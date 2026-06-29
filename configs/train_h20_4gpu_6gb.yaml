@@ -12,6 +12,20 @@
 #   * streaming fineweb-edu -> no local preprocessing / no disk for shards.
 #
 # Estimated peak ~3.5-3.7 GiB/GPU, leaving headroom for CUDA context + NCCL.
+#
+# Training budget (sized to the data we have): with sequence_packing every step
+# is 64 x 512 = 32,768 *content* source tokens (no padding/truncation waste), so
+# max_steps=350,000 -> ~11.5 B source tokens ~= one full pass over fineweb-edu
+# sample-10BT (~10-11 B tokens). That is ~3.5x the old 100k-step budget and is a
+# Chinchilla-reasonable amount for a ~0.2B model. To train harder, raise
+# max_steps (repeating sample-10BT up to ~4 epochs is fine) or move to a larger
+# subset (sample-100BT). NOTE: the cosine LR anneals to ~0 at max_steps, so set
+# the final budget HERE before launching rather than resuming past max_steps.
+#
+# Checkpoints are ~1.4 GiB each (model + AdamW state) and are NOT pruned by
+# default, so keep_last_checkpoints=5 + save_every_steps=5000 bounds disk to
+# ~7 GiB of rolling checkpoints over the whole run.
+#
 # Launch (pins CUDA_VISIBLE_DEVICES=0,1,2,3, nproc=4):
 #   bash scripts/launch_h20_4gpu.sh configs/train_h20_4gpu_6gb.yaml
 #
@@ -57,6 +71,9 @@ batching:
   global_batch_sequences: 64
   dynamic_padding: true
   pad_to_multiple_of: 8
+  # Greedily pack cleaned docs into full 512-token blocks: no padding waste and
+  # no truncated document tails, so every step's 32,768 source tokens are real.
+  sequence_packing: true
 
 optimizer:
   name: adamw_torch_fused
@@ -93,8 +110,9 @@ data:
 
 runtime:
   output_dir: outputs/jepa-slm-h20-4gpu-6gb
-  max_steps: 100000
-  save_every_steps: 250
+  max_steps: 350000          # ~11.5 B source tokens ~= 1 epoch of sample-10BT
+  save_every_steps: 5000
+  keep_last_checkpoints: 5   # bound disk: ~1.4 GiB/ckpt, rolling window of 5
   resume_from: null
   stop_file: outputs/jepa-slm-h20-4gpu-6gb/STOP
   save_on_stop: true

@@ -3,7 +3,22 @@ set -euo pipefail
 
 CONFIG="${1:-configs/train_h20_4gpu.yaml}"
 RESUME_FROM="${2:-${JEPA_RESUME_FROM:-}}"
-STOP_FILE="${JEPA_STOP_FILE:-outputs/jepa-slm-h20-4gpu/STOP}"
+
+# Resolve the graceful-stop file the *trainer* actually watches (config
+# runtime.stop_file) so the path we clear/announce matches the chosen config --
+# otherwise a stale STOP at the config's path could instantly halt the run, and
+# the printed "touch ..." hint would be wrong. The config loader is torch-free.
+if [[ -n "${JEPA_STOP_FILE:-}" ]]; then
+  STOP_FILE="${JEPA_STOP_FILE}"
+else
+  STOP_FILE="$(PYTHONPATH="${PWD}/src:${PYTHONPATH:-}" "${PYTHON:-python}" - "${CONFIG}" <<'PY' 2>/dev/null || true
+import sys
+from jepa_slm.config import load_training_config
+print(load_training_config(sys.argv[1]).runtime.stop_file or "")
+PY
+)"
+  STOP_FILE="${STOP_FILE:-outputs/jepa-slm-h20-4gpu/STOP}"
+fi
 
 rm -f "${STOP_FILE}"
 mkdir -p "$(dirname "${STOP_FILE}")"

@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import os
 import random
+import shutil
 import signal
 import time
 from contextlib import nullcontext
@@ -195,6 +196,30 @@ def save_checkpoint(
     if save_rng:
         payload["rng"] = _rng_state()
     torch.save(payload, checkpoint_dir / "trainer_state.pt")
+
+
+def prune_old_checkpoints(output_dir: Path, keep_last: int) -> None:
+    """Keep only the most recent ``keep_last`` ``step-*`` checkpoints.
+
+    No-op when ``keep_last <= 0`` (keep everything). Called on rank 0 after a
+    save so long runs do not accumulate unbounded ~1.4 GiB checkpoints.
+    """
+
+    if keep_last <= 0:
+        return
+
+    def _step_of(path: Path) -> int:
+        try:
+            return int(path.name.split("-")[-1])
+        except ValueError:
+            return -1
+
+    checkpoints = sorted(
+        (p for p in output_dir.glob("step-*") if p.is_dir() and _step_of(p) >= 0),
+        key=_step_of,
+    )
+    for stale in checkpoints[:-keep_last]:
+        shutil.rmtree(stale, ignore_errors=True)
 
 
 def checkpoint_state_path(path: Path) -> Path:
@@ -597,6 +622,7 @@ def train(config: TrainingConfig) -> None:
                         output_dir, step, train_model, optimizer, config,
                         samples_consumed=samples_consumed, scaler=scaler,
                     )
+                    prune_old_checkpoints(output_dir, config.runtime.keep_last_checkpoints)
                 stop_training = should_stop(config.runtime.stop_file, device)
                 if step >= max_steps or stop_training:
                     break
@@ -606,6 +632,7 @@ def train(config: TrainingConfig) -> None:
                 output_dir, step, train_model, optimizer, config,
                 samples_consumed=samples_consumed, scaler=scaler,
             )
+            prune_old_checkpoints(output_dir, config.runtime.keep_last_checkpoints)
             if stop_training:
                 print(f"Stop requested; saved checkpoint at step {step}.", flush=True)
         cleanup_distributed()
