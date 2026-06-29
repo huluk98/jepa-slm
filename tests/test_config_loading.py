@@ -45,10 +45,14 @@ def test_load_4gpu_6gb_config_is_streaming_bf16_and_tiny_microbatch() -> None:
     assert config.runtime.gradient_checkpointing is True
     assert config.batching.per_gpu_micro_batch_sequences == 1
     assert config.batching.gradient_accumulation_steps == 16
+    assert config.batching.sequence_packing is True  # full 512-tok blocks, no waste
     assert config.data.dataset == "HuggingFaceFW/fineweb-edu"  # streamed, not a glob
     assert config.data.streaming is True
     assert not any(ch in config.data.dataset for ch in "*?[")
     assert config.runtime.empty_cache_steps == 50
+    # ~1 epoch of sample-10BT (~11.5 B source tokens) with bounded checkpoint disk.
+    assert config.runtime.max_steps == 350000
+    assert config.runtime.keep_last_checkpoints == 5
     # Same flagship 0.2B model shape as the full-memory config.
     assert config.model.d_model == 768
 

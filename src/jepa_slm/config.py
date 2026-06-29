@@ -100,6 +100,10 @@ class RuntimeSettings:
     output_dir: str = "outputs/jepa-slm"
     max_steps: int = 1_000
     save_every_steps: int = 1_000
+    # Keep only the most recent N step-* checkpoints (0 = keep all). Each
+    # checkpoint stores the model + full AdamW state (~1.4 GiB for the 0.2B
+    # model), so long runs need this to bound disk use.
+    keep_last_checkpoints: int = 0
     resume_from: str | None = None
     stop_file: str | None = None
     save_on_stop: bool = True
