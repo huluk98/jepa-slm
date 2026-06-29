@@ -55,6 +55,26 @@ def test_load_4gpu_6gb_config_is_streaming_bf16_and_tiny_microbatch() -> None:
     assert config.runtime.keep_last_checkpoints == 5
     # Same flagship 0.2B model shape as the full-memory config.
     assert config.model.d_model == 768
+    assert config.runtime.cuda_visible_devices is None  # 6gb config doesn't pin GPUs
+
+
+def test_load_4gpu_96gb_config_full_memory_full_corpus() -> None:
+    # Full-memory 4-GPU config: fp32 master weights, no checkpointing, big batch,
+    # GPUs 4-7, and the FULL fineweb-edu (subset null) for a large token budget.
+    config = load_training_config(Path("configs/train_h20_4gpu_96gb.yaml"))
+
+    assert config.runtime.param_dtype == "fp32"         # fp32 master weights
+    assert config.runtime.gradient_checkpointing is False
+    assert config.runtime.compile is True
+    assert config.distributed.compile is True
+    assert config.batching.per_gpu_micro_batch_sequences == 128  # 4x128 = global 512
+    assert config.batching.sequence_packing is True
+    assert config.data.dataset == "HuggingFaceFW/fineweb-edu"
+    assert config.data.subset is None                   # full corpus, not a 10BT sample
+    assert config.data.streaming is True
+    assert config.runtime.cuda_visible_devices == "4,5,6,7"  # launcher pins GPUs 4-7
+    assert config.runtime.max_steps == 1150000          # ~301 B source tokens
+    assert config.runtime.keep_last_checkpoints == 5
 
 
 def test_performance_and_distributed_blocks_are_parsed() -> None:

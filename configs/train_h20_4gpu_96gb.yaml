@@ -1,0 +1,123 @@
+# 4x H20 at FULL memory (~97871 MiB/GPU), GPUs 4-7, large streamed corpus.
+#
+# Use this once you have the whole H20s back (the _6gb config is only for a tight
+# shared slice). Differences from train_h20_4gpu_6gb.yaml:
+#   * param_dtype: fp32  -> fp32 master weights + bf16 autocast compute (best
+#                           numerics; we have the memory now).
+#   * micro batch 128, gradient_checkpointing: false, compile: true -> high
+#                           throughput. Peak ~34 GiB/GPU (verified), well under 96.
+#   * global batch 512 (4 GPUs x 128 x 1) + lr 4e-4 -> same optimization regime
+#                           as the proven 8-GPU config.
+#   * data: streams the FULL fineweb-edu (subset: null, ~1.3T tokens available),
+#                           not the 10BT sample -> plenty of unique tokens.
+#   * cuda_visible_devices: "4,5,6,7" -> the launcher pins these and derives nproc.
+#
+# Token budget: tokens/step = 4 x 1 x 128 x 512 = 262,144 source tokens, so
+# max_steps=1,150,000 -> ~301 B source tokens (~0.23 epoch of full fineweb-edu,
+# zero repetition). That is the "more tokens for a more efficient 0.2B" target
+# (cf. SmolLM-360M @ 600B). The cosine LR anneals to 0 at max_steps, so set the
+# budget here; to train even harder just raise max_steps (still < 1 epoch).
+#
+# Launch (the script reads cuda_visible_devices -> GPUs 4-7, nproc=4):
+#   bash scripts/launch_h20_4gpu.sh configs/train_h20_4gpu_96gb.yaml
+# Stop: touch outputs/jepa-slm-h20-4gpu-96gb/STOP
+
+hardware:
+  accelerator: nvidia_h20
+  num_nodes: 1
+  gpus_per_node: 4
+  assumed_memory_mib_per_gpu: 97871
+  cuda_visible_devices: "4,5,6,7"
+  precision: bf16          # autocast compute dtype
+  param_dtype: fp32        # fp32 master weights (we have the memory)
+  matmul_precision: high
+  allow_tf32: true
+
+distributed:
+  launcher: torchrun
+  strategy: ddp
+  why: "0.2B fits easily per H20; 4-way DDP, no FSDP/ZeRO needed."
+  backend: nccl
+  find_unused_parameters: false
+  gradient_as_bucket_view: true
+  static_graph: true
+  compile: true
+
+performance:
+  dataloader_num_workers_per_rank: 8
+  dataloader_prefetch_factor: 4
+  pin_memory: true
+  persistent_workers: true
+  empty_cache_steps: 0
+
+model:
+  config_path: configs/model_0_2b.yaml
+  expected_trainable_params: 200200000
+
+batching:
+  source_length: 512
+  target_length: 256
+  per_gpu_micro_batch_sequences: 128
+  gradient_accumulation_steps: 1
+  global_batch_sequences: 512
+  approximate_tokens_per_step: 262144
+  dynamic_padding: true
+  pad_to_multiple_of: 8
+  # Full 512-token packed blocks: no padding waste, static shapes (good for compile).
+  sequence_packing: true
+
+optimizer:
+  name: adamw_torch_fused
+  learning_rate: 0.0004
+  betas: [0.9, 0.95]
+  weight_decay: 0.1
+  grad_clip_norm: 1.0
+  scheduler: cosine
+  warmup_fraction: 0.02
+
+objective:
+  ce_weight: 1.0
+  jepa_weight_peak: 0.25
+  jepa_warmup_fraction: 0.10
+  jepa_final_phase_weight: 0.05
+  jepa_final_phase_fraction: 0.20
+  ema_tau_start: 0.99
+  ema_tau_end: 0.9995
+  vicreg_variance_weight: 0.04
+  vicreg_covariance_weight: 0.01
+
+data:
+  dataset: "HuggingFaceFW/fineweb-edu"   # streamed + cleaned on-the-fly
+  subset: null                            # null = the FULL corpus (~1.3T tokens)
+  split: train
+  text_field: text
+  tokenizer_name: google-t5/t5-small
+  tokenizer_path: null
+  tokenizer_use_fast: true
+  streaming: true
+  normalize_text: true
+  min_chars: 200
+  max_chars: 20000
+
+runtime:
+  output_dir: outputs/jepa-slm-h20-4gpu-96gb
+  max_steps: 1150000          # ~301 B source tokens at 262,144 tokens/step
+  save_every_steps: 10000
+  keep_last_checkpoints: 5     # ~2.7 GiB/ckpt (fp32 model + AdamW); rolling window
+  resume_from: null
+  stop_file: outputs/jepa-slm-h20-4gpu-96gb/STOP
+  save_on_stop: true
+  log_every_steps: 10
+  seed: 13
+  param_dtype: fp32
+  compile: true
+  gradient_checkpointing: false
+  cuda_visible_devices: "4,5,6,7"
+  empty_cache_steps: 0
+
+logging:
+  log_every_steps: 10
+  checkpoint_every_steps: 10000
+  report_tokens_per_second: true
+  report_gpu_memory: true
+  report_jepa_variance: true
