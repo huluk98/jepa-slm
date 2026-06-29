@@ -29,6 +29,28 @@ def test_load_4gpu_h20_config_preserves_stop_file() -> None:
     assert config.batching.per_gpu_micro_batch_sequences == 64
     assert config.runtime.stop_file == "outputs/jepa-slm-h20-4gpu/STOP"
     assert config.runtime.save_on_stop is True
+    # The full-memory config keeps fp32 master weights (param_dtype default).
+    assert config.runtime.param_dtype == "fp32"
+
+
+def test_load_4gpu_6gb_config_is_streaming_bf16_and_tiny_microbatch() -> None:
+    # The tight 6 GiB config must: store weights in bf16 (shrinks optimizer
+    # state), stream fineweb-edu (no local prep), and use micro-batch 1 with
+    # gradient accumulation so it fits a ~6 GiB-per-GPU slice on GPUs 0-3.
+    config = load_training_config(Path("configs/train_h20_4gpu_6gb.yaml"))
+
+    assert config.runtime.param_dtype == "bf16"
+    assert config.runtime.precision == "bf16"
+    assert config.runtime.compile is False
+    assert config.runtime.gradient_checkpointing is True
+    assert config.batching.per_gpu_micro_batch_sequences == 1
+    assert config.batching.gradient_accumulation_steps == 16
+    assert config.data.dataset == "HuggingFaceFW/fineweb-edu"  # streamed, not a glob
+    assert config.data.streaming is True
+    assert not any(ch in config.data.dataset for ch in "*?[")
+    assert config.runtime.empty_cache_steps == 50
+    # Same flagship 0.2B model shape as the full-memory config.
+    assert config.model.d_model == 768
 
 
 def test_performance_and_distributed_blocks_are_parsed() -> None:

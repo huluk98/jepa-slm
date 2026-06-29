@@ -102,6 +102,29 @@ def test_training_runs_past_first_log_step_and_checkpoints(tmp_path: Path) -> No
     assert state["samples_consumed"] > 0
 
 
+def test_param_storage_dtype_resolves() -> None:
+    from dataclasses import replace
+
+    from jepa_slm.trainer import param_storage_dtype
+
+    base = _smoke_config(Path("."))
+    assert param_storage_dtype(base) is None  # fp32 default -> keep fp32 master
+    bf16 = replace(base, runtime=replace(base.runtime, param_dtype="bf16"))
+    assert param_storage_dtype(bf16) is torch.bfloat16
+
+
+def test_training_runs_with_bf16_param_storage(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    config = _smoke_config(tmp_path, max_steps=2)
+    config = replace(
+        config,
+        runtime=replace(config.runtime, param_dtype="bf16", precision="bf16"),
+    )
+    train(config)  # bf16 weight/optimizer storage must train end-to-end without error
+    assert (tmp_path / "smoke" / "step-00000002" / "trainer_state.pt").exists()
+
+
 def test_training_resumes_from_checkpoint(tmp_path: Path) -> None:
     train(_smoke_config(tmp_path, max_steps=2))
     resume = str(tmp_path / "smoke" / "step-00000002")

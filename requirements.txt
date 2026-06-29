@@ -1,9 +1,38 @@
-accelerate>=0.31.0
-datasets>=2.20.0
-deepspeed>=0.14.5
-einops>=0.8.0
-numpy>=1.26.0
-pyyaml>=6.0.0
-sentencepiece>=0.2.0
-torch>=2.3.0
-transformers>=4.42.0
+# JEPA-SLM runtime requirements -- complete package set for the 4-8x H20 node.
+#
+# Two supported ways to install:
+#
+#   A) conda (recommended on the H20 box; pulls CUDA 12.4 + NCCL via conda):
+#        bash scripts/install_h20_env.sh          # uses envs/jepa-h20-cu124.yml
+#      conda installs torch + the CUDA 12.4 toolkit; the env file then pip-installs
+#      this same package set on top.
+#
+#   B) pure pip into an existing CUDA 12.4 environment:
+#        pip install -r requirements.txt
+#      The extra index below makes `torch` resolve to the CUDA 12.4 wheels
+#      (e.g. torch 2.4.x+cu124). Drop the line if you manage torch yourself.
+#
+# The executable trainer (src/jepa_slm/) is plain torch DDP + AdamW: it does NOT
+# use deepspeed, flash-attn, or transformer-engine, so none are required here.
+# flash-attn/transformer-engine live in envs/requirements-h20-optional.txt and
+# are only for unrelated experiments (T5 relative-position bias is incompatible
+# with FlashAttention-2; the trainer uses sdpa/eager attention).
+
+--extra-index-url https://download.pytorch.org/whl/cu124
+
+# Core deep-learning stack (CUDA 12.4 build of torch via the index above).
+torch>=2.4
+transformers>=4.44
+tokenizers>=0.19
+datasets>=2.20
+accelerate>=0.34
+
+# Tokenizer + model utilities.
+sentencepiece>=0.2
+einops>=0.8
+
+# Config, numerics, evaluation, logging.
+numpy>=1.26
+pyyaml>=6.0
+evaluate>=0.4.2
+wandb>=0.17
