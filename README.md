@@ -10,6 +10,38 @@ UL2/T5-style encoder-decoder + encoder-side JEPA/data2vec auxiliary loss
 
 The key rule is simple: keep token-level cross entropy for generation, and add JEPA only as a train-time representation objective for the encoder.
 
+## Run training
+
+Current default: 4× H20 at full memory on **GPUs 4-7**, streaming the **full
+fineweb-edu** for **~301 B tokens** — config `configs/train_h20_4gpu_96gb.yaml`.
+
+```bash
+# 1) One-time environment (CUDA 12.4):
+bash scripts/install_h20_env.sh && conda activate jepa-h20   # or: pip install -r requirements.txt
+python scripts/h20_sanity_check.py                            # expect CUDA 12.4 + "BF16 supported: True"
+
+# 2) Launch. The launcher reads runtime.cuda_visible_devices from the config, so
+#    this pins GPUs 4-7 and sets nproc=4 automatically; the corpus streams (no prep):
+bash scripts/launch_h20_4gpu.sh configs/train_h20_4gpu_96gb.yaml
+
+# 3) Watch / stop / resume:
+#    logs print step, loss, tok_per_s, gpu_mem_gb every 10 steps.
+touch outputs/jepa-slm-h20-4gpu-96gb/STOP                                  # graceful stop
+bash scripts/launch_h20_4gpu.sh configs/train_h20_4gpu_96gb.yaml \
+     outputs/jepa-slm-h20-4gpu-96gb/step-00010000                          # resume from a checkpoint
+```
+
+Preview the resolved plan without launching:
+
+```bash
+DRY_RUN=1 NPROC=4 bash scripts/run_training.sh configs/train_h20_4gpu_96gb.yaml
+```
+
+Use different GPUs ad hoc with `CUDA_VISIBLE_DEVICES=0,1,2,3 bash scripts/launch_h20_4gpu.sh ...`.
+Other setups: a tight ~6 GiB-per-GPU slice → `configs/train_h20_4gpu_6gb.yaml`;
+8 GPUs → `bash scripts/launch_h20_8gpu.sh`. Details under
+[H20 Environment](#h20-environment-cuda-124) and [Configs](#configs) below.
+
 ## Quick Start
 
 Generate the architecture verification report:
@@ -233,9 +265,11 @@ and current implementation boundaries.
 - `configs/model_homebench_0_1b.yaml`
 - `configs/datasets.yaml`
 - `configs/tokenizer.yaml`
-- `configs/train_tiny_smoke.yaml`
-- `configs/train_h20_8gpu.yaml`
-- `configs/train_h20_4gpu.yaml`
+- `configs/train_tiny_smoke.yaml` — 1-step CPU/offline smoke (synthetic data)
+- `configs/train_h20_8gpu.yaml` — 8× H20, streaming
+- `configs/train_h20_4gpu.yaml` — 4× H20, local cleaned shards (auto-prepped)
+- `configs/train_h20_4gpu_6gb.yaml` — 4× H20 on a tight ~6 GiB slice (bf16 storage, GPUs 0-3)
+- `configs/train_h20_4gpu_96gb.yaml` — 4× H20 full memory, GPUs 4-7, full fineweb-edu (~301 B tokens) — **default**
 - `configs/train_clean_local.yaml`
 
 ## Tokenizer
