@@ -123,8 +123,28 @@ touch outputs/jepa-slm-h20-4gpu-6gb/STOP
 ```
 
 bf16 weight storage trades a little numerical precision for the memory win; once
-you have the full 96 GiB H20s back, use `configs/train_h20_4gpu.yaml` (fp32
-master weights, micro-batch 64) instead.
+you have the full 96 GiB H20s back, use the full-memory config below instead.
+
+### Full memory (~96 GiB/GPU), large corpus, choose GPUs
+
+`configs/train_h20_4gpu_96gb.yaml` is the full-throughput config: fp32 master
+weights, micro-batch 128 (global batch 512), `torch.compile` on, gradient
+checkpointing off (peak ~34 GiB/GPU), and it **streams the full fineweb-edu**
+(`subset: null`) for a large token budget — `max_steps: 1,150,000` ≈ **~301 B
+source tokens** (well-trained 0.2B; cf. SmolLM-360M @ 600 B). It pins GPUs via
+`runtime.cuda_visible_devices: "4,5,6,7"`, and the launcher derives `nproc` from
+that list:
+
+```bash
+bash scripts/launch_h20_4gpu.sh configs/train_h20_4gpu_96gb.yaml   # uses GPUs 4-7
+# override the GPUs ad hoc:
+CUDA_VISIBLE_DEVICES=0,1,2,3 bash scripts/launch_h20_4gpu.sh configs/train_h20_4gpu_96gb.yaml
+# stop it safely:
+touch outputs/jepa-slm-h20-4gpu-96gb/STOP
+```
+
+The cosine LR anneals to 0 at `max_steps`, so set the full token budget up front
+(raise `max_steps` for more — still < 1 epoch of fineweb-edu).
 
 Resume a stopped 4x H20 run:
 

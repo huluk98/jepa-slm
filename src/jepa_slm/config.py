@@ -124,6 +124,10 @@ class RuntimeSettings:
     compile: bool = False
     gradient_checkpointing: bool = True
     device: str = "auto"
+    # Comma-separated physical GPU indices the launcher should expose as
+    # CUDA_VISIBLE_DEVICES (e.g. "4,5,6,7"). None = let the launcher decide.
+    # Read by scripts/launch_h20_4gpu.sh; not consumed by the trainer itself.
+    cuda_visible_devices: str | None = None
     # Float32 matmul precision and TF32 toggles (honored at trainer startup).
     matmul_precision: str = "high"
     allow_tf32: bool = True
@@ -389,6 +393,9 @@ def load_training_config(path: Path | str) -> TrainingConfig:
                 "precision": hardware_raw.get("precision", runtime_raw.get("precision", "bf16")),
                 "param_dtype": hardware_raw.get(
                     "param_dtype", runtime_raw.get("param_dtype", "fp32")
+                ),
+                "cuda_visible_devices": hardware_raw.get(
+                    "cuda_visible_devices", runtime_raw.get("cuda_visible_devices", None)
                 ),
                 "compile": distributed_raw.get("compile", runtime_raw.get("compile", False)),
                 "gradient_checkpointing": training_raw.get(
