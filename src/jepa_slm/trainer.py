@@ -362,22 +362,25 @@ def train(config: TrainingConfig) -> None:
     if resume_samples:
         config = _with_skip_examples(config, resume_samples // max(1, world_size))
 
-    dataloader = build_dataloader(
-        config.data,
-        tokenizer,
-        source_length=config.batching.source_length,
-        target_length=config.batching.target_length,
-        batch_size=config.batching.per_gpu_micro_batch_sequences,
-        num_workers=config.performance.num_workers,
-        rank=rank,
-        world_size=world_size,
-        prefetch_factor=config.performance.prefetch_factor,
-        persistent_workers=config.performance.persistent_workers,
-        pin_memory=config.performance.pin_memory,
-        dynamic_padding=config.batching.dynamic_padding,
-        pad_to_multiple_of=config.batching.pad_to_multiple_of,
-        sequence_packing=config.batching.sequence_packing,
-    )
+    def make_train_dataloader(cfg: TrainingConfig):
+        return build_dataloader(
+            cfg.data,
+            tokenizer,
+            source_length=cfg.batching.source_length,
+            target_length=cfg.batching.target_length,
+            batch_size=cfg.batching.per_gpu_micro_batch_sequences,
+            num_workers=cfg.performance.num_workers,
+            rank=rank,
+            world_size=world_size,
+            prefetch_factor=cfg.performance.prefetch_factor,
+            persistent_workers=cfg.performance.persistent_workers,
+            pin_memory=cfg.performance.pin_memory,
+            dynamic_padding=cfg.batching.dynamic_padding,
+            pad_to_multiple_of=cfg.batching.pad_to_multiple_of,
+            sequence_packing=cfg.batching.sequence_packing,
+        )
+
+    dataloader = make_train_dataloader(config)
 
     eval_loader = None
     if config.runtime.eval_every_steps > 0 and config.data.eval_dataset:
@@ -479,11 +482,15 @@ def train(config: TrainingConfig) -> None:
 
     try:
         while step < max_steps and not stop_training:
+            epoch_batches = 0
             for batch in dataloader:
+                epoch_batches += 1
                 batch = move_batch_to_device(
                     batch, device, non_blocking=config.performance.pin_memory
                 )
-                samples_consumed += micro_batch * world_size
+                # Count the rows actually in the batch: the trailing batch of an
+                # epoch can be short, and this counter drives the resume skip.
+                samples_consumed += batch.input_ids.size(0) * world_size
                 jepa_weight = jepa_lambda_schedule(
                     step,
                     max_steps,
@@ -626,6 +633,20 @@ def train(config: TrainingConfig) -> None:
                 stop_training = should_stop(config.runtime.stop_file, device)
                 if step >= max_steps or stop_training:
                     break
+            if step >= max_steps or stop_training:
+                break
+            if epoch_batches == 0:
+                raise RuntimeError(
+                    "[jepa-slm] the dataloader yielded no batches for a full "
+                    "epoch (resume skip past the end of the corpus, an empty or "
+                    "over-filtered dataset). Refusing to spin forever."
+                )
+            if config.data.skip_examples:
+                # The resume skip covers data consumed in the PREVIOUS run, so it
+                # applies only to the first pass over the stream; every later
+                # epoch must start from the head of the corpus again.
+                config = _with_skip_examples(config, 0)
+                dataloader = make_train_dataloader(config)
     finally:
         if rank == 0 and (not stop_training or config.runtime.save_on_stop):
             save_checkpoint(

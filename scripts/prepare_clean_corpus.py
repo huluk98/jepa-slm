@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Iterator
@@ -22,7 +23,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--split", default="train")
     parser.add_argument("--text-field", default="text")
     parser.add_argument("--input", action="append", default=[], help="Local .txt/.jsonl path or glob.")
-    parser.add_argument("--output-dir", type=Path, default=Path("data/clean/fineweb-edu-sample10bt"))
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        # Keep in sync with configs/train_clean_local.yaml data.dataset glob.
+        default=Path("data/clean/fineweb-edu-sample10bt-100k"),
+    )
     parser.add_argument("--max-docs", type=int, default=100_000)
     parser.add_argument("--shard-docs", type=int, default=50_000)
     parser.add_argument("--min-chars", type=int, default=200)
@@ -158,3 +164,8 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    # pyarrow's IO thread pool can deadlock in its C++ destructor at interpreter
+    # shutdown (seen on macOS) after streaming HF datasets. All output — shards
+    # and metadata.json — is fully written by now, so skip interpreter teardown.
+    sys.stdout.flush()
+    os._exit(0)

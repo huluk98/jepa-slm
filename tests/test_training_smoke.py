@@ -235,3 +235,95 @@ def test_skip_examples_is_split_across_workers(tmp_path: Path, monkeypatch) -> N
         totals += len(list(TextStreamDataset(settings, rank=0, world_size=1)))
     # World-size-1, 40 docs, skip 8 -> 32 should survive across both workers.
     assert totals == 32
+
+
+class _FakeWorker:
+    def __init__(self, wid: int, num_workers: int = 2) -> None:
+        self.id = wid
+        self.num_workers = num_workers
+
+
+def test_worker_self_sharded_streams_are_not_strided_again(monkeypatch) -> None:
+    # HF streaming datasets (datasets>=2.8) already split their shards across
+    # DataLoader workers inside __iter__. When that stream is also node-split
+    # (split_dataset_by_node), _shard_and_clean must NOT stride it a second
+    # time - the old behavior silently dropped (num_workers-1)/num_workers of
+    # every rank's data.
+    import jepa_slm.data as data_mod
+
+    settings = DataSettings(dataset="synthetic", normalize_text=True)
+    dataset = TextStreamDataset(settings, rank=0, world_size=4)
+    docs = [f"doc number {i}" for i in range(10)]
+
+    monkeypatch.setattr(data_mod, "get_worker_info", lambda: _FakeWorker(0))
+    got = [
+        r["text"]
+        for r in dataset._shard_and_clean(docs, node_sharded=True, worker_sharded=True)
+    ]
+    assert got == docs  # the worker's slice passes through unfiltered
+
+
+def test_worker_sharded_only_stream_strides_by_rank(monkeypatch) -> None:
+    # split_dataset_by_node failed but the stream still self-shards by worker:
+    # the only remaining split to apply is across ranks.
+    import jepa_slm.data as data_mod
+
+    docs = [f"doc number {i}" for i in range(10)]
+    monkeypatch.setattr(data_mod, "get_worker_info", lambda: _FakeWorker(0))
+
+    settings = DataSettings(dataset="synthetic", normalize_text=True)
+    per_rank = [
+        [
+            r["text"]
+            for r in TextStreamDataset(settings, rank=rank, world_size=2)._shard_and_clean(
+                docs, node_sharded=False, worker_sharded=True
+            )
+        ]
+        for rank in (0, 1)
+    ]
+    assert set(per_rank[0]).isdisjoint(per_rank[1])
+    assert sorted(per_rank[0] + per_rank[1]) == docs
+
+
+def test_packed_skip_examples_skips_blocks_not_documents() -> None:
+    # In packed mode samples_consumed counts fixed-length blocks; resume must
+    # skip exactly that many blocks, not that many documents.
+    settings = DataSettings(dataset="synthetic", max_samples=50, normalize_text=True)
+    tok = ByteSmokeTokenizer(320)
+    baseline = list(PackedTokenDataset(settings, tok, source_length=16))
+
+    skipped = list(
+        PackedTokenDataset(
+            DataSettings(
+                dataset="synthetic", max_samples=50, normalize_text=True, skip_examples=3
+            ),
+            tok,
+            source_length=16,
+        )
+    )
+    assert skipped[0]["input_ids"] == baseline[3]["input_ids"]
+
+
+def test_mask_token_prefers_sentinel_over_unk() -> None:
+    from jepa_slm.data import _resolve_mask_token_id
+
+    class SentinelTokenizer:
+        pad_token_id = 0
+        eos_token_id = 1
+        unk_token_id = 2
+
+        def convert_tokens_to_ids(self, token: str) -> int:
+            return 32099 if token == "<extra_id_0>" else self.unk_token_id
+
+    class NoSentinelTokenizer:
+        pad_token_id = 0
+        eos_token_id = 1
+        unk_token_id = 2
+
+        def convert_tokens_to_ids(self, token: str) -> int:
+            return self.unk_token_id  # unknown strings come back as unk
+
+    # A real sentinel wins; otherwise fall back to unk (never a text token).
+    assert _resolve_mask_token_id(SentinelTokenizer()) == 32099
+    assert _resolve_mask_token_id(NoSentinelTokenizer()) == 2
+    assert _resolve_mask_token_id(ByteSmokeTokenizer(320)) == 2
