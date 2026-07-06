@@ -5,7 +5,7 @@ from __future__ import annotations
 import glob
 import gzip
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Iterable, Iterator, Protocol
 
@@ -108,17 +108,13 @@ def load_tokenizer(settings: DataSettings, vocab_size: int | None = None) -> Tok
         return ByteSmokeTokenizer(vocab_size or 32_128)
     use_fast = getattr(settings, "tokenizer_use_fast", True)
     if settings.tokenizer_path:
-        # T5Tokenizer is the slow SentencePiece tokenizer; prefer the fast
-        # variant when available for a large throughput win.
-        if use_fast:
-            try:
-                from transformers import T5TokenizerFast
-
-                tokenizer = T5TokenizerFast(vocab_file=settings.tokenizer_path, extra_ids=100)
-            except Exception:  # noqa: BLE001 - fall back to the slow tokenizer
-                tokenizer = T5Tokenizer(vocab_file=settings.tokenizer_path, extra_ids=100)
-        else:
-            tokenizer = T5Tokenizer(vocab_file=settings.tokenizer_path, extra_ids=100)
+        # Always load local SentencePiece models with the slow tokenizer. The
+        # fast conversion (T5Converter) silently drops SentencePiece byte
+        # fallback — every OOV character becomes <unk> — and even changes ids
+        # for plain ASCII, so fast vs slow produce id-incompatible streams.
+        # Worse, the conversion needs protobuf, so which tokenizer a run got
+        # depended on the node's installed packages.
+        tokenizer = T5Tokenizer(vocab_file=settings.tokenizer_path, extra_ids=100)
     else:
         try:
             tokenizer = AutoTokenizer.from_pretrained(settings.tokenizer_name, use_fast=use_fast)
@@ -126,7 +122,48 @@ def load_tokenizer(settings: DataSettings, vocab_size: int | None = None) -> Tok
             tokenizer = AutoTokenizer.from_pretrained(settings.tokenizer_name, use_fast=False)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
+    _neutralize_model_max_length(tokenizer)
     return tokenizer
+
+
+def _resolve_mask_token_id(tokenizer: TokenizerLike) -> int:
+    """Pick the id used to corrupt masked source positions.
+
+    Prefer a dedicated T5 sentinel (``<extra_id_0>``) over ``<unk>``: real web
+    text tokenizes rare characters (CJK, emoji, symbols) to genuine unk tokens,
+    and if unk doubled as the mask token those positions would be
+    indistinguishable from masked ones — natural unks would act as phantom
+    masks and span-masking an unk would be a corruption no-op.
+    """
+
+    convert = getattr(tokenizer, "convert_tokens_to_ids", None)
+    unk = getattr(tokenizer, "unk_token_id", None)
+    if convert is not None:
+        try:
+            sentinel = convert("<extra_id_0>")
+        except Exception:  # noqa: BLE001 - tokenizer without string lookup
+            sentinel = None
+        # Unknown token strings come back as the unk id; only use a real sentinel.
+        if sentinel is not None and sentinel >= 0 and sentinel != unk:
+            return sentinel
+    if unk is not None:
+        return unk
+    return tokenizer.pad_token_id
+
+
+def _neutralize_model_max_length(tokenizer: object) -> None:
+    """Lift the pretrained checkpoint's model_max_length cap.
+
+    The cap (512 for t5-small) does not apply here: this model trains from
+    scratch with relative-position bias, and every consumer either passes an
+    explicit max_length (collators) or cuts blocks to source_length itself
+    (PackedTokenDataset). Left in place, encoding a long document spams "Token
+    indices sequence length is longer than the specified maximum sequence
+    length" once per document during packed streaming.
+    """
+
+    if getattr(tokenizer, "model_max_length", None) is not None:
+        tokenizer.model_max_length = int(1e9)
 
 
 class TextStreamDataset(IterableDataset[dict[str, str]]):
@@ -144,28 +181,43 @@ class TextStreamDataset(IterableDataset[dict[str, str]]):
         self.world_size = max(1, int(world_size))
 
     def _shard_and_clean(
-        self, raw: Iterable[object], node_sharded: bool
+        self, raw: Iterable[object], node_sharded: bool, worker_sharded: bool = False
     ) -> Iterator[dict[str, str]]:
         worker = get_worker_info()
         worker_id = worker.id if worker is not None else 0
         num_workers = worker.num_workers if worker is not None else 1
 
-        if node_sharded:
+        if node_sharded and worker_sharded:
+            # The HF stream is already split by node AND self-shards across
+            # DataLoader workers; striding again here would silently drop the
+            # other workers' slices from training entirely.
+            shard_index, num_shards = 0, 1
+        elif node_sharded:
             # The HF stream is already split by node; only shard across workers.
             shard_index, num_shards = worker_id, num_workers
+        elif worker_sharded:
+            # The stream self-shards across workers; only shard across ranks.
+            shard_index, num_shards = self.rank, self.world_size
         else:
             shard_index = self.rank * num_workers + worker_id
             num_shards = self.world_size * num_workers
 
-        # skip_examples is a PER-RANK count. Each worker runs __iter__ in its own
-        # process, so split the skip across this rank's workers; the union of
-        # per-worker skips then equals (within < num_workers) the per-rank skip.
-        # Without this, every worker would skip the full count -> N x over-skip.
+        # skip_examples and max_samples are PER-RANK counts. Each worker runs
+        # __iter__ in its own process, so split both across this rank's workers;
+        # the union of the per-worker values then equals (within < num_workers)
+        # the per-rank value. Without this, every worker would apply the full
+        # count -> N x over-skip / N x over-sample.
         rank_skip = max(0, int(self.settings.skip_examples))
         skip = rank_skip // num_workers
         if worker_id < rank_skip % num_workers:
             skip += 1
         max_samples = self.settings.max_samples
+        if max_samples is not None and num_workers > 1:
+            max_samples = max_samples // num_workers + (
+                1 if worker_id < max_samples % num_workers else 0
+            )
+        if max_samples is not None and max_samples <= 0:
+            return
         shard_pos = 0
         emitted = 0
         for index, value in enumerate(raw):
@@ -229,7 +281,13 @@ class TextStreamDataset(IterableDataset[dict[str, str]]):
                 node_sharded = False
 
         raw = (row.get(self.settings.text_field) for row in dataset)
-        yield from self._shard_and_clean(raw, node_sharded=node_sharded)
+        # datasets>=2.8 IterableDataset detects torch DataLoader workers inside
+        # __iter__ and splits its shards across them on its own; this stream
+        # must therefore not be worker-strided again in _shard_and_clean.
+        worker_sharded = hasattr(dataset, "_iter_pytorch")
+        yield from self._shard_and_clean(
+            raw, node_sharded=node_sharded, worker_sharded=worker_sharded
+        )
 
 
 def _is_local_dataset(dataset: str) -> bool:
@@ -244,6 +302,12 @@ def _open_text(path: Path):
 
 def _iter_local_texts(dataset: str, text_field: str) -> Iterator[str]:
     paths = [Path(path) for path in sorted(glob.glob(dataset))] or [Path(dataset)]
+    missing = [path for path in paths if not path.exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"data.dataset {dataset!r} matched no local corpus files. "
+            "Run scripts/prepare_clean_corpus.py (or fix the path/glob) first."
+        )
     for path in paths:
         with _open_text(path) as handle:
             for line in handle:
@@ -303,9 +367,7 @@ class JepaCollator:
             decoder_start_token_id=self.tokenizer.pad_token_id,
             pad_token_id=self.tokenizer.pad_token_id,
         )
-        mask_token_id = self.tokenizer.unk_token_id
-        if mask_token_id is None:
-            mask_token_id = self.tokenizer.pad_token_id
+        mask_token_id = _resolve_mask_token_id(self.tokenizer)
         masked = span_mask_batch(
             source["input_ids"],
             source["attention_mask"],
@@ -357,6 +419,14 @@ class PackedTokenDataset(IterableDataset[dict[str, list]]):
         world_size: int = 1,
     ) -> None:
         super().__init__()
+        # skip_examples counts consumed dataloader ROWS, which in packed mode
+        # are fixed-length blocks, not documents (docs average several blocks,
+        # so skipping documents would fast-forward the stream far past the true
+        # resume position). Zero the inner document-level skip and re-apply it
+        # here at block granularity.
+        self.skip_blocks = max(0, int(settings.skip_examples))
+        if self.skip_blocks:
+            settings = replace(settings, skip_examples=0)
         self.text_dataset = TextStreamDataset(settings, rank=rank, world_size=world_size)
         self.tokenizer = tokenizer
         self.source_length = source_length
@@ -364,6 +434,15 @@ class PackedTokenDataset(IterableDataset[dict[str, list]]):
         self.separator_id = eos if eos is not None else tokenizer.pad_token_id
 
     def __iter__(self) -> Iterator[dict[str, list]]:
+        # skip_blocks is per-rank; split it across this rank's workers the same
+        # way TextStreamDataset splits skip_examples.
+        worker = get_worker_info()
+        worker_id = worker.id if worker is not None else 0
+        num_workers = worker.num_workers if worker is not None else 1
+        skip = self.skip_blocks // num_workers
+        if worker_id < self.skip_blocks % num_workers:
+            skip += 1
+
         buffer: list[int] = []
         for row in self.text_dataset:
             ids = self.tokenizer.encode(row["text"], add_special_tokens=False)
@@ -374,6 +453,9 @@ class PackedTokenDataset(IterableDataset[dict[str, list]]):
             while len(buffer) >= self.source_length:
                 block = buffer[: self.source_length]
                 del buffer[: self.source_length]
+                if skip > 0:
+                    skip -= 1
+                    continue
                 yield {"input_ids": block}
 
 
@@ -406,9 +488,7 @@ class PackedCollator:
             decoder_start_token_id=self.tokenizer.pad_token_id,
             pad_token_id=self.tokenizer.pad_token_id,
         )
-        mask_token_id = self.tokenizer.unk_token_id
-        if mask_token_id is None:
-            mask_token_id = self.tokenizer.pad_token_id
+        mask_token_id = _resolve_mask_token_id(self.tokenizer)
         masked = span_mask_batch(
             input_ids,
             attention_mask,
