@@ -157,18 +157,37 @@ def _rng_state() -> dict[str, object]:
     return state
 
 
+def _cpu_byte_tensor(value: object) -> object:
+    # torch.set_rng_state requires a CPU ByteTensor; checkpoints loaded with
+    # map_location=cuda arrive with these tensors on the GPU and would raise.
+    if isinstance(value, torch.Tensor):
+        return value.to(device="cpu", dtype=torch.uint8)
+    return value
+
+
 def _restore_rng_state(state: dict[str, object] | None) -> None:
     if not state:
         return
     if "python" in state:
         random.setstate(state["python"])
     if "torch" in state:
-        torch.set_rng_state(state["torch"])
+        torch.set_rng_state(_cpu_byte_tensor(state["torch"]))
     if "cuda" in state and torch.cuda.is_available():
         try:
-            torch.cuda.set_rng_state_all(state["cuda"])
+            torch.cuda.set_rng_state_all(
+                [_cpu_byte_tensor(s) for s in state["cuda"]]
+            )
         except Exception:  # noqa: BLE001 - device count mismatch on resume
             pass
+
+
+def _unwrap_model(model: object) -> "JepaEncoderDecoder":
+    if isinstance(model, DistributedDataParallel):
+        model = model.module
+    # torch.compile wraps in OptimizedModule; saving through it would prefix
+    # every state-dict key with "_orig_mod." and break resume across a
+    # compile-setting change (or any plain eval-time load).
+    return getattr(model, "_orig_mod", model)
 
 
 def save_checkpoint(
@@ -178,10 +197,11 @@ def save_checkpoint(
     optimizer: AdamW,
     config: TrainingConfig,
     samples_consumed: int = 0,
+    samples_into_epoch: int = 0,
     scaler: "torch.cuda.amp.GradScaler | None" = None,
     save_rng: bool = True,
 ) -> None:
-    raw_model = model.module if isinstance(model, DistributedDataParallel) else model
+    raw_model = _unwrap_model(model)
     checkpoint_dir = output_dir / f"step-{step:08d}"
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     payload: dict[str, object] = {
@@ -190,12 +210,18 @@ def save_checkpoint(
         "optimizer": optimizer.state_dict(),
         "config": asdict(config),
         "samples_consumed": samples_consumed,
+        "samples_into_epoch": samples_into_epoch,
     }
     if scaler is not None and scaler.is_enabled():
         payload["scaler"] = scaler.state_dict()
     if save_rng:
         payload["rng"] = _rng_state()
-    torch.save(payload, checkpoint_dir / "trainer_state.pt")
+    # Write-then-rename so a crash or preemption mid-save cannot leave a
+    # truncated trainer_state.pt as the newest (and possibly only) checkpoint.
+    state_path = checkpoint_dir / "trainer_state.pt"
+    tmp_path = state_path.with_name("trainer_state.pt.tmp")
+    torch.save(payload, tmp_path)
+    tmp_path.replace(state_path)
 
 
 def prune_old_checkpoints(output_dir: Path, keep_last: int) -> None:
@@ -242,16 +268,33 @@ def load_checkpoint(
     device: torch.device,
     scaler=None,
     restore_rng: bool = True,
+    out_meta: dict | None = None,
 ) -> int:
-    """Restore model/optimizer (and RNG/scaler) state. Returns the step."""
-    raw_model = model.module if isinstance(model, DistributedDataParallel) else model
+    """Restore model/optimizer (and RNG/scaler) state. Returns the step.
+
+    ``out_meta``, when given, is filled with the checkpoint's bookkeeping
+    fields (``samples_consumed``, ``samples_into_epoch``) so callers do not
+    need a second full deserialization of the ~GiB state file.
+    """
+    raw_model = _unwrap_model(model)
     state = torch.load(checkpoint_state_path(path), map_location=device, weights_only=False)
-    raw_model.load_state_dict(state["model"])
+    model_state = state["model"]
+    if any(key.startswith("_orig_mod.") for key in model_state):
+        # Checkpoints written before save_checkpoint unwrapped torch.compile.
+        model_state = {
+            key.removeprefix("_orig_mod."): value for key, value in model_state.items()
+        }
+    raw_model.load_state_dict(model_state)
     optimizer.load_state_dict(state["optimizer"])
     if scaler is not None and "scaler" in state:
         scaler.load_state_dict(state["scaler"])
     if restore_rng:
         _restore_rng_state(state.get("rng"))
+    if out_meta is not None:
+        out_meta["samples_consumed"] = int(state.get("samples_consumed", 0))
+        out_meta["samples_into_epoch"] = int(
+            state.get("samples_into_epoch", state.get("samples_consumed", 0))
+        )
     return int(state["step"])
 
 
@@ -346,21 +389,17 @@ def train(config: TrainingConfig) -> None:
             flush=True,
         )
 
-    # On resume, skip the data each rank already consumed so a restarted
-    # streaming run does not replay the head of the corpus.
-    resume_samples = 0
-    if config.runtime.resume_from:
-        try:
-            ckpt = torch.load(
-                checkpoint_state_path(Path(config.runtime.resume_from)),
-                map_location="cpu",
-                weights_only=False,
+    if rank == 0:
+        # Loudly reject config knobs that parse but are not wired through, so
+        # an "ablation" cannot silently run the baseline.
+        if not config.jepa.enabled:
+            print(
+                "[jepa-slm] WARNING: jepa.enabled=false is NOT wired; the JEPA "
+                "objective stays active. For a CE-only run set "
+                "jepa.lambda_peak: 0 and jepa.lambda_final_weight: 0 "
+                "(the EMA encoder still runs but contributes zero loss).",
+                flush=True,
             )
-            resume_samples = int(ckpt.get("samples_consumed", 0))
-        except Exception:  # noqa: BLE001 - best-effort; fall back to no skip
-            resume_samples = 0
-    if resume_samples:
-        config = _with_skip_examples(config, resume_samples // max(1, world_size))
 
     def make_train_dataloader(cfg: TrainingConfig):
         return build_dataloader(
@@ -379,8 +418,6 @@ def train(config: TrainingConfig) -> None:
             pad_to_multiple_of=cfg.batching.pad_to_multiple_of,
             sequence_packing=cfg.batching.sequence_packing,
         )
-
-    dataloader = make_train_dataloader(config)
 
     eval_loader = None
     if config.runtime.eval_every_steps > 0 and config.data.eval_dataset:
@@ -419,6 +456,13 @@ def train(config: TrainingConfig) -> None:
     assert_encoder_only_jepa_contract(model)
     if config.runtime.gradient_checkpointing:
         model.gradient_checkpointing_enable()
+        if rank == 0:
+            print(
+                "[jepa-slm] gradient checkpointing ON (activations recomputed in "
+                "backward, ~25-35% slower). Set runtime.gradient_checkpointing: "
+                "false when GPU memory allows.",
+                flush=True,
+            )
     model.to(device)
     storage_dtype = param_storage_dtype(config)
     if storage_dtype is not None:
@@ -452,13 +496,38 @@ def train(config: TrainingConfig) -> None:
     scaler = _make_grad_scaler(use_grad_scaler)
 
     step = 0
-    samples_consumed = resume_samples
+    samples_consumed = 0
+    samples_into_epoch = 0
     if config.runtime.resume_from:
+        meta: dict = {}
         step = load_checkpoint(
-            Path(config.runtime.resume_from), raw_model, optimizer, device, scaler=scaler
+            Path(config.runtime.resume_from),
+            raw_model,
+            optimizer,
+            device,
+            scaler=scaler,
+            restore_rng=(rank == 0),
+            out_meta=meta,
         )
+        if rank > 0:
+            # Rank 0 restores the checkpoint RNG for continuity; giving every
+            # rank that same state would put span masking in cross-rank
+            # lockstep for the rest of the run. Re-derive distinct,
+            # step-dependent streams instead.
+            set_seed(config.runtime.seed + 100_003 * step, rank)
+        samples_consumed = meta.get("samples_consumed", 0)
+        samples_into_epoch = meta.get("samples_into_epoch", 0)
+        if samples_into_epoch:
+            # Skip only the rows consumed in the interrupted epoch. The
+            # cumulative lifetime count would over-skip past the end of the
+            # corpus on any run that has crossed an epoch boundary.
+            config = _with_skip_examples(
+                config, samples_into_epoch // max(1, world_size)
+            )
         if rank == 0:
             print(f"Resumed from {config.runtime.resume_from} at step {step}.", flush=True)
+
+    dataloader = make_train_dataloader(config)
 
     output_dir = Path(config.runtime.output_dir)
     if rank == 0:
@@ -489,8 +558,10 @@ def train(config: TrainingConfig) -> None:
                     batch, device, non_blocking=config.performance.pin_memory
                 )
                 # Count the rows actually in the batch: the trailing batch of an
-                # epoch can be short, and this counter drives the resume skip.
-                samples_consumed += batch.input_ids.size(0) * world_size
+                # epoch can be short, and these counters drive the resume skip.
+                batch_rows = batch.input_ids.size(0) * world_size
+                samples_consumed += batch_rows
+                samples_into_epoch += batch_rows
                 jepa_weight = jepa_lambda_schedule(
                     step,
                     max_steps,
@@ -627,7 +698,8 @@ def train(config: TrainingConfig) -> None:
                 ):
                     save_checkpoint(
                         output_dir, step, train_model, optimizer, config,
-                        samples_consumed=samples_consumed, scaler=scaler,
+                        samples_consumed=samples_consumed,
+                        samples_into_epoch=samples_into_epoch, scaler=scaler,
                     )
                     prune_old_checkpoints(output_dir, config.runtime.keep_last_checkpoints)
                 stop_training = should_stop(config.runtime.stop_file, device)
@@ -635,11 +707,25 @@ def train(config: TrainingConfig) -> None:
                     break
             if step >= max_steps or stop_training:
                 break
+            samples_into_epoch = 0
             if epoch_batches == 0:
+                if config.data.skip_examples:
+                    # The resume skip consumed this rank's entire stream (rank
+                    # shards can be slightly uneven). Continue from the corpus
+                    # head rather than raising: raising on one rank while peers
+                    # keep training would hang them in the next all-reduce.
+                    print(
+                        f"[jepa-slm] rank {rank}: resume skip consumed the "
+                        "entire stream; continuing from the corpus head.",
+                        flush=True,
+                    )
+                    config = _with_skip_examples(config, 0)
+                    dataloader = make_train_dataloader(config)
+                    continue
                 raise RuntimeError(
                     "[jepa-slm] the dataloader yielded no batches for a full "
-                    "epoch (resume skip past the end of the corpus, an empty or "
-                    "over-filtered dataset). Refusing to spin forever."
+                    "epoch (empty or over-filtered dataset). Refusing to spin "
+                    "forever."
                 )
             if config.data.skip_examples:
                 # The resume skip covers data consumed in the PREVIOUS run, so it
@@ -651,7 +737,8 @@ def train(config: TrainingConfig) -> None:
         if rank == 0 and (not stop_training or config.runtime.save_on_stop):
             save_checkpoint(
                 output_dir, step, train_model, optimizer, config,
-                samples_consumed=samples_consumed, scaler=scaler,
+                samples_consumed=samples_consumed,
+                samples_into_epoch=samples_into_epoch, scaler=scaler,
             )
             prune_old_checkpoints(output_dir, config.runtime.keep_last_checkpoints)
             if stop_training:

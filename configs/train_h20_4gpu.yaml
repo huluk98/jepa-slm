@@ -74,6 +74,12 @@ runtime:
   output_dir: outputs/jepa-slm-h20-4gpu
   max_steps: 100000
   save_every_steps: 250
+  # 250-step cadence over 100k steps = 400 checkpoints (~2.7 GiB each) if kept;
+  # bound the rolling window so the outputs volume cannot fill mid-run.
+  keep_last_checkpoints: 20
+  # Explicit: activations recomputed in backward (~25-35% slower). Likely safe
+  # to turn off on 96 GiB H20s; verify peak memory before flipping.
+  gradient_checkpointing: true
   resume_from: null
   stop_file: outputs/jepa-slm-h20-4gpu/STOP
   save_on_stop: true

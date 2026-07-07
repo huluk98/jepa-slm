@@ -327,3 +327,31 @@ def test_mask_token_prefers_sentinel_over_unk() -> None:
     assert _resolve_mask_token_id(SentinelTokenizer()) == 32099
     assert _resolve_mask_token_id(NoSentinelTokenizer()) == 2
     assert _resolve_mask_token_id(ByteSmokeTokenizer(320)) == 2
+
+
+def test_resume_after_epoch_boundary_with_finite_corpus(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    # Finite 8-doc corpus -> 2 optimizer steps per epoch (micro 2 x accum 2).
+    # Step 4 ends exactly at an epoch boundary, so the checkpoint's lifetime
+    # row count (16) exceeds one epoch (8). Resume must use the position
+    # WITHIN the interrupted epoch — the lifetime count previously over-skipped
+    # the whole stream and killed the run via the empty-epoch guard.
+    glob = _write_distinct_shard(tmp_path, 8)
+
+    def small(config):
+        return replace(
+            config,
+            data=replace(config.data, dataset=glob, max_samples=None),
+        )
+
+    train(small(_smoke_config(tmp_path, max_steps=4)))
+    resume = str(tmp_path / "smoke" / "step-00000004")
+    train(small(_smoke_config(tmp_path, max_steps=6, resume_from=resume)))
+
+    final = tmp_path / "smoke" / "step-00000006" / "trainer_state.pt"
+    assert final.exists()
+    state = torch.load(final, map_location="cpu", weights_only=False)
+    assert state["step"] == 6
+    # Epoch position is bounded by the epoch size, never the lifetime count.
+    assert 0 <= state["samples_into_epoch"] <= 8

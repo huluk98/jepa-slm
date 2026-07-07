@@ -10,14 +10,24 @@ RESUME_FROM="${2:-${JEPA_RESUME_FROM:-}}"
 # stale STOP instantly halting the run; the GPU list lets a config pin e.g. 4-7.
 CFG_STOP=""
 CFG_DEVICES=""
-eval "$(PYTHONPATH="${PWD}/src:${PYTHONPATH:-}" "${PYTHON:-python}" - "${CONFIG}" <<'PY' 2>/dev/null || true
+CFG_RESOLVED=0
+eval "$(PYTHONPATH="${PWD}/src:${PYTHONPATH:-}" "${PYTHON:-python}" - "${CONFIG}" <<'PY' || true
 import shlex, sys
 from jepa_slm.config import load_training_config
 c = load_training_config(sys.argv[1])
-print(f"CFG_STOP={shlex.quote(c.runtime.stop_file or '')}")
-print(f"CFG_DEVICES={shlex.quote(c.runtime.cuda_visible_devices or '')}")
+stop = c.runtime.stop_file
+devices = c.runtime.cuda_visible_devices
+# str() + explicit None checks: a YAML `cuda_visible_devices: 7` arrives as an
+# int (shlex.quote would raise) and `0` is falsy — both must survive.
+print(f"CFG_STOP={shlex.quote('' if stop is None else str(stop))}")
+print(f"CFG_DEVICES={shlex.quote('' if devices is None else str(devices))}")
+print("CFG_RESOLVED=1")  # printed last: only reached when the load succeeded
 PY
 )"
+if [[ "${CFG_RESOLVED}" != "1" ]]; then
+  echo "WARNING: could not resolve launch settings from ${CONFIG} (bad config or python env?);" >&2
+  echo "         falling back to GPUs 0,1,2,3 and the default STOP path." >&2
+fi
 
 STOP_FILE="${JEPA_STOP_FILE:-${CFG_STOP:-outputs/jepa-slm-h20-4gpu/STOP}}"
 rm -f "${STOP_FILE}"

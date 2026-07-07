@@ -95,6 +95,11 @@ runtime:
   # 0.2B). Raise toward ~130000 steps for the documented 50B "main" recipe.
   max_steps: 50000
   save_every_steps: 2000
+  # Bound the rolling checkpoint window (~2.7 GiB each; 25 saves over the run).
+  keep_last_checkpoints: 10
+  # Explicit: activations recomputed in backward (~25-35% slower). Likely safe
+  # to turn off on 96 GiB H20s; verify peak memory before flipping.
+  gradient_checkpointing: true
   log_every_steps: 10
   # Validation-CE every N steps (needs data.eval_dataset set); 0 disables.
   eval_every_steps: 0
