@@ -1,0 +1,992 @@
+{
+  "dataset": "HuggingFaceFW/fineweb-edu",
+  "subset": "sample-10BT",
+  "local_path": "data/clean/fineweb-edu-sample10bt-full/clean-*.jsonl",
+  "seen_documents": 9672101,
+  "kept_documents": 9672082,
+  "kept_characters": 40791038499,
+  "min_chars": 200,
+  "max_chars": 20000,
+  "normalize_text": true,
+  "complete": true,
+  "token_stats": {
+    "tokenizer": "google-t5/t5-small",
+    "content_tokens": 9436339404,
+    "tokens_per_doc_mean": 976,
+    "tokens_per_doc_median": 668,
+    "packed_blocks_512": 18449241,
+    "docs_over_512_tokens_pct": 62.3
+  },
+  "shards": [
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00000.jsonl",
+      "documents": 50000,
+      "sha256": "7af7a381379546fd69e7745004456cfe5eefc11a840538e6af24feba4b6ae66b"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00001.jsonl",
+      "documents": 50000,
+      "sha256": "58f0e16fb8d80f15a4fcec4a9ad7b815bbd395b89b05d24cb8ac1be174682758"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00002.jsonl",
+      "documents": 50000,
+      "sha256": "90d7b9a7bba429d073dd21160b8f55903b36eec0dd2bf9416d6448dae1608b32"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00003.jsonl",
+      "documents": 50000,
+      "sha256": "9d41cf143d3a3fce3ff6653dd2e5f8a91a1b42094cf6d0b50daf1086fabc3841"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00004.jsonl",
+      "documents": 50000,
+      "sha256": "514e7afcb7c812ec49b21431c08716ff84a3cfae0d1160d0462827666ecb3baf"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00005.jsonl",
+      "documents": 50000,
+      "sha256": "56454a46fedb501e112aca7c4d676297a0a2af9d0c7ffffbd586a22fa0950555"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00006.jsonl",
+      "documents": 50000,
+      "sha256": "2629abd30f48d7df0d44e903eee086c6b47c23dcc70a84d6056fc9d12f3b6ebe"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00007.jsonl",
+      "documents": 50000,
+      "sha256": "d9148502cedf1361d429df30de0c66bc4ffdb9b3171ae48ae01ad2621c80398b"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00008.jsonl",
+      "documents": 50000,
+      "sha256": "d37204cc75376d52c3e77dabbc717b9ea71908938b74fc86cbd0259078bb1470"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00009.jsonl",
+      "documents": 50000,
+      "sha256": "2cafb957ee4327904861564735bdc491912ad68cc3dcdbe40a364936112b002e"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00010.jsonl",
+      "documents": 50000,
+      "sha256": "c8f92ebe730d7dc0a1cb19cdb880a6e51d0e17b4602074f8a1655822528ad7c1"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00011.jsonl",
+      "documents": 50000,
+      "sha256": "a3f988554a3212ccf78ff5bdd7111899a7a672791127625bbce71583a5b67da5"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00012.jsonl",
+      "documents": 50000,
+      "sha256": "0aa450a830ebb4fbd9fdc971023f7324d253ca202a66eb30dccdf951dc90d534"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00013.jsonl",
+      "documents": 50000,
+      "sha256": "643c70618880a03f9d193981a16a09742a745851228e168817803dba96c4e70d"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00014.jsonl",
+      "documents": 50000,
+      "sha256": "92b8076afa6ffbd275898d5bebc6ade42cfb5a10e6338ffaa6e11e766e1d9dd0"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00015.jsonl",
+      "documents": 50000,
+      "sha256": "b993c0f7a2d2c4904b6a51484c5b4eb8c2c834b8c2cb5faf6ccce300252539cc"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00016.jsonl",
+      "documents": 50000,
+      "sha256": "1cb058a3ca7803569bf7edcb017d959660c99476bd2af7a8ab1f4f185dda5994"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00017.jsonl",
+      "documents": 50000,
+      "sha256": "2163acdbc7926cb0996f7b6ac73cc70d99ebc5a078e7e7695d271ac92f4082f3"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00018.jsonl",
+      "documents": 50000,
+      "sha256": "888cd100c38b94f9dd66b2bf16e2f85b6c44d5eb5b65a26c70af73f3bded1396"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00019.jsonl",
+      "documents": 50000,
+      "sha256": "aaf76bffadd028028845bc50cdb5ec79c5a3a3294742fdc1e419fe065a5108d3"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00020.jsonl",
+      "documents": 50000,
+      "sha256": "8a167f54608ca1aa1ee3436ba34c6a29727736dcdd07e812a25eadcedd28ba1c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00021.jsonl",
+      "documents": 50000,
+      "sha256": "bf6be6fc82d1e65bb66f4a799e2a115c63469cd793e2adc088c7e5a0a92b68b9"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00022.jsonl",
+      "documents": 50000,
+      "sha256": "e15670dff355ed8a872b11c4bfd505f88032ed5d55352854e6ddbb251bdeab39"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00023.jsonl",
+      "documents": 50000,
+      "sha256": "e687da3cdd9414731a38c5364c4bea2f687f9dab936850d3a8d50c5e3adf029c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00024.jsonl",
+      "documents": 50000,
+      "sha256": "9fd4d78bb0571525a15a6d353812844a7b34e360ac6b9d1f5f668a28654a7877"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00025.jsonl",
+      "documents": 50000,
+      "sha256": "444cc74ae048c34877f44400aa07271e25e114af991342d3a58d370e0156ea7d"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00026.jsonl",
+      "documents": 50000,
+      "sha256": "c6b3b36d7bf34b7fa66d778e88af04b17d982fe64e18bd422344e470ebdad7bf"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00027.jsonl",
+      "documents": 50000,
+      "sha256": "eebd75667689cf59542ade9f3e0c692aa8d0b1593d90916b20279df098417359"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00028.jsonl",
+      "documents": 50000,
+      "sha256": "14f644ae213f54ec123933e9ac0f773f932d533fa51185086ec9c01908ff6734"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00029.jsonl",
+      "documents": 50000,
+      "sha256": "fe9a0d40b2206e4fd925f577bb136fa21a5aedfea8e73ceb427b03b7f2eb3a35"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00030.jsonl",
+      "documents": 50000,
+      "sha256": "807f6e717f6fa5964858bcf263bbe8ed638ecf993a390eca8eb191d470e08b7b"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00031.jsonl",
+      "documents": 50000,
+      "sha256": "72e05243528ae2ce2485ca49ef6bbdd4c189d247ec80662f228a552024fc1b19"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00032.jsonl",
+      "documents": 50000,
+      "sha256": "c9a0cf3d65c62dc7b94fa203785b9e5bb95639bdcd3cc339ad32d50d2109e196"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00033.jsonl",
+      "documents": 50000,
+      "sha256": "2f4473cbe78d1c7584409e9e0d626458cff2ae6533889035fd5e9723bf0015d9"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00034.jsonl",
+      "documents": 50000,
+      "sha256": "cd003b8f229a0f561703ae67b5791d8248145b4ecaa20d7cceed019a151018a7"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00035.jsonl",
+      "documents": 50000,
+      "sha256": "65a30712a43eb7049d37f5982f6265498e4274e6fa8b3212dbcc7832b4a8c74a"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00036.jsonl",
+      "documents": 50000,
+      "sha256": "6978809651d5bd9c2ad1536a0c569d19fecbfe423f1d0e255a375931e549e35d"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00037.jsonl",
+      "documents": 50000,
+      "sha256": "67f40a6fd5be16f026b6243ccf0ce33c555469a167c37606e7e7929b73039cd6"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00038.jsonl",
+      "documents": 50000,
+      "sha256": "bbf11c76529f6371d6b0f967245bbb23a8282dcf4d5b793698334cec2163c813"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00039.jsonl",
+      "documents": 50000,
+      "sha256": "2de6f191236557b4aadcc0b6472f85b22724c14d2938f2433d70078887d157d8"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00040.jsonl",
+      "documents": 50000,
+      "sha256": "d1e394d674b05e519b3fadb6c3ca9d855ceb7e68d3a498583971637d7d89631e"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00041.jsonl",
+      "documents": 50000,
+      "sha256": "2cf16d2aa4ee94a9566efac8d5133bec1c2f891e323f4af2110f17a4562a611e"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00042.jsonl",
+      "documents": 50000,
+      "sha256": "ffbba38fdb2da0ce39c54ea48b7c80d5a62113cc02130fb312136e368618ff1a"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00043.jsonl",
+      "documents": 50000,
+      "sha256": "0c5d4c577bd3ee27fcb59a4fe0c23881832bde2521a51c340245c2bc40150ce7"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00044.jsonl",
+      "documents": 50000,
+      "sha256": "cf271dac7d571536b9364a666ac95ac359df33db300a59231719c38b91b5b550"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00045.jsonl",
+      "documents": 50000,
+      "sha256": "a1eb8b2598d954eeb86e076cb5b9a904b02a64c3e449e706e5e5088c1f43b065"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00046.jsonl",
+      "documents": 50000,
+      "sha256": "6ada7a61e67a54a6185d4b9dee977665f7ef172067a6a58b476f0436116217ca"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00047.jsonl",
+      "documents": 50000,
+      "sha256": "bf8c5aa0e1b723475d518de5c8c6b43bc3c7e9b7008275a2fa9242e8da721dd3"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00048.jsonl",
+      "documents": 50000,
+      "sha256": "c2a19d094b72178e01080e4ae04e80a1a80f58796aec01d5c396394ed12185b7"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00049.jsonl",
+      "documents": 50000,
+      "sha256": "c1b6537667c98b02d401b56f4ad83a3034c708d768c3fa01e08806f1b3d98a62"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00050.jsonl",
+      "documents": 50000,
+      "sha256": "069fa9e07ea007c347b4d067efb711e6ce2ccedabc5255a40b0c521264ef34a3"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00051.jsonl",
+      "documents": 50000,
+      "sha256": "b3be17e75b8a1ff5a63f7f92916c69d77778c0a93e71c6dbf783452d3d0bbef7"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00052.jsonl",
+      "documents": 50000,
+      "sha256": "d05259430980a360b1b110c4e891684d8fb5c7aa0b0d9f9be424cea3462f6015"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00053.jsonl",
+      "documents": 50000,
+      "sha256": "b01188e040e512183c17a43267ec1f72662f2d3217d9f6e35b0a9f1138de418b"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00054.jsonl",
+      "documents": 50000,
+      "sha256": "4caa3c8c948a53d4cc7f938f94ac5715d138e8a9ebe3dec168ed3cf16280309a"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00055.jsonl",
+      "documents": 50000,
+      "sha256": "adb5600512483ba136d61f90ff3a815521d766f136ea791df4fb9febfb92f372"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00056.jsonl",
+      "documents": 50000,
+      "sha256": "b2df45f25062c8ec4f99cb6f1ba4c6a1368ce0a223859bc3bfb900e2394ba453"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00057.jsonl",
+      "documents": 50000,
+      "sha256": "f06a0a00b4834ccf4c7d39e8c6a08292635e8bcdbe876e1263db1b2197837427"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00058.jsonl",
+      "documents": 50000,
+      "sha256": "b149009fcb2ce8d7e4fa9d04428ccce4412c58ab3bb73eb83275f6116adb8e41"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00059.jsonl",
+      "documents": 50000,
+      "sha256": "4a6a9c4ea73a7f201a0e08d81f0d12ca1317a8810cc71c3266f7164f06dca49c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00060.jsonl",
+      "documents": 50000,
+      "sha256": "f4c57ec10c1b4b543d6753eded7d4ed087c128c18e646e9c4553608b0f7c4aa8"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00061.jsonl",
+      "documents": 50000,
+      "sha256": "dd407c5615dcab264f495396537cab99c46337d26f15d99d7aae0977f583ffe6"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00062.jsonl",
+      "documents": 50000,
+      "sha256": "8325fc0624adaa95dead932fff7746c0d055fd446a757d5736f928b91ba20d6b"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00063.jsonl",
+      "documents": 50000,
+      "sha256": "29bdf630a1bddda4910d9fcfa9c5523f09c37d632e0283bc6c96414a9ea7967b"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00064.jsonl",
+      "documents": 50000,
+      "sha256": "d46601111d912666ef503013cdf75185c278c24463a791222ec8f577163f9494"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00065.jsonl",
+      "documents": 50000,
+      "sha256": "97fe6321c3aa612b7aa703da365455b2407bff3160ef96003b1226447c9e13ea"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00066.jsonl",
+      "documents": 50000,
+      "sha256": "bdc1e090cedb814a09c3e7855755d96f8b10ecb33680c05015d27df7227aa832"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00067.jsonl",
+      "documents": 50000,
+      "sha256": "88c72f3fc04512a70b7f5a93201e1d0caa28c08e0db3348873fa758ad908f71f"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00068.jsonl",
+      "documents": 50000,
+      "sha256": "f5942e901c9b7dc02d41345d3a05946ddade180db67fd72f1936e49c730d77b3"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00069.jsonl",
+      "documents": 50000,
+      "sha256": "21b0c160604eb095b24821d7c08bbd47c4c4ffaeee946dafaad555046ce2e4ce"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00070.jsonl",
+      "documents": 50000,
+      "sha256": "72654daffa47b3cd7c0a5ff75a4c9971a6c1797f1af59ee4fd293bed595bd56c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00071.jsonl",
+      "documents": 50000,
+      "sha256": "1dc336d0e110c4e9065a769396365906c8cc511895cd6edaabb7c9e29c21310a"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00072.jsonl",
+      "documents": 50000,
+      "sha256": "96f411a3ec4b57d2f99570ecd01931999431a395a1950963d9f0a901ccc11a04"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00073.jsonl",
+      "documents": 50000,
+      "sha256": "035438bd49e3b6cc17343014d66510de528578f27007935b1935fef7749a244a"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00074.jsonl",
+      "documents": 50000,
+      "sha256": "df68fab317c664abb46a251b0969241343e02c7815ed702701d04fe138a0f558"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00075.jsonl",
+      "documents": 50000,
+      "sha256": "f802458fe5d0836833168fdbc472c8d64dcad96d279a194d20e84b5e405b4bd5"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00076.jsonl",
+      "documents": 50000,
+      "sha256": "435c5e2f9e3c1bfcafa28bc50afa27422ca5d09b4e0f4eb3b59fed8273799846"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00077.jsonl",
+      "documents": 50000,
+      "sha256": "1fbbad891afa3128bcf3e7d536a24b0825ebe992213c421ff35293c645aa7d02"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00078.jsonl",
+      "documents": 50000,
+      "sha256": "ada1f988f9927dc2b300cb8e4aeac4dfa77b278fb94c1e1daa9901d01e582729"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00079.jsonl",
+      "documents": 50000,
+      "sha256": "642e428755c0907ff5a81e0ebacb082ffbe7901a0d81d367bdc00c095400b298"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00080.jsonl",
+      "documents": 50000,
+      "sha256": "24e8f2a51b7fbec12ad1b59543252b8c9eadc7f5a74e9742eeada2210a561e98"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00081.jsonl",
+      "documents": 50000,
+      "sha256": "0a86d8e7c1c3bf24746d6daa05abe5ab5c2afdc6a0d17365cc4ff8638bb22c86"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00082.jsonl",
+      "documents": 50000,
+      "sha256": "f6a34c42acf16146e5f61caf3f85fd99fce10c1e643d063a4bb4c30329effad9"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00083.jsonl",
+      "documents": 50000,
+      "sha256": "d6a89dac211f963838b096cb5d886b8da43bbaca4bf5682707faf02b2fd755d3"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00084.jsonl",
+      "documents": 50000,
+      "sha256": "3deb326944b892229beddb7e45d4516113d75595782de3b34cd1793b8b4fcc60"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00085.jsonl",
+      "documents": 50000,
+      "sha256": "f887806a01e95a86d1c44f450f25c54217c99853ccc1136f18287d6d6fc2e235"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00086.jsonl",
+      "documents": 50000,
+      "sha256": "df69c086f6494e38346cd2cb69efc510903a329f9c57a66eb8752d5be769f4e2"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00087.jsonl",
+      "documents": 50000,
+      "sha256": "6d6d3b2cea974304d19132e1e4b0d14b2c90d13ac226447f0cb785df1b8f91f2"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00088.jsonl",
+      "documents": 50000,
+      "sha256": "51d7e6e6282e31d33b9a2796227d39744796abb4e82337c1c12ab907f222c7c5"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00089.jsonl",
+      "documents": 50000,
+      "sha256": "6ceb43dd991b845c6fa78ede01fc33d3265a438714c7047b97d14cf8fd65248e"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00090.jsonl",
+      "documents": 50000,
+      "sha256": "ef2cc6d7b3e6fe01338a6cdcf2b2d194f684080ff4395430e13e67871d25db1c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00091.jsonl",
+      "documents": 50000,
+      "sha256": "57efaa348e48a1856d19d3273cb55998a4d8472e6bed7fd6cb93c6b3a3682e8d"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00092.jsonl",
+      "documents": 50000,
+      "sha256": "295badaac6cde0b9f10829656cebf999ce839c281904f245fa1ff2375ef26b9d"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00093.jsonl",
+      "documents": 50000,
+      "sha256": "85b1613ab456ec4cfdc5ba94c3502cd2e9e432a30246089aef7da715fe0509a5"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00094.jsonl",
+      "documents": 50000,
+      "sha256": "bab572cb62619cd0a2192e9c6d6e2c9e05ce5550d8de409f754da181a7855b03"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00095.jsonl",
+      "documents": 50000,
+      "sha256": "1bc8937d0bfa43688f68ece03629c2492b81954a39647f34cfa4e64c5a553b83"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00096.jsonl",
+      "documents": 50000,
+      "sha256": "6b0819e39ae238363374bfb67fae820872f03452c9eb3d9833b379620f0c15c0"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00097.jsonl",
+      "documents": 50000,
+      "sha256": "05f75b37e609fa803a12856003f53d77a15db6f4216e857a7ae39e9208699627"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00098.jsonl",
+      "documents": 50000,
+      "sha256": "7281de0935dd7747f2fc0eefc209201d370227e63b847778d65fc83404e579d6"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00099.jsonl",
+      "documents": 50000,
+      "sha256": "7f467c7a5693a390be48b83a98ed5dbb82b71106805d15495fe361a94d19032b"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00100.jsonl",
+      "documents": 50000,
+      "sha256": "b9e0177af8b6486c8d11f5091ca8a9f56f6051337a264172699215aceacd20a5"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00101.jsonl",
+      "documents": 50000,
+      "sha256": "4348448f57c96ce82cd142c1e8a2f7c78b5031ad8bcbd3bec7b2fcb00eedc467"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00102.jsonl",
+      "documents": 50000,
+      "sha256": "5ded42361382605508e1a92b50c605ec60eef42c7d5f8a0e1f41b18d646984a8"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00103.jsonl",
+      "documents": 50000,
+      "sha256": "fb6fbe717233075e5be1ff0f9e21ca7b4051484c283ef95a8145606df9052770"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00104.jsonl",
+      "documents": 50000,
+      "sha256": "6966452a13154b21705332b47c0882bd944e0c6e38dd82cd1c9e70829ac22af0"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00105.jsonl",
+      "documents": 50000,
+      "sha256": "cfac9b0a32a1bea0790b7e32cb57a1b7859cc2fdbf7c38753008868a35ee69de"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00106.jsonl",
+      "documents": 50000,
+      "sha256": "bae36e748e6894c61c4748470d85f7307f2a19adb547d3bbef641894b698c945"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00107.jsonl",
+      "documents": 50000,
+      "sha256": "0cdf9fe1c72b9a7f9f46f7fce988e77d38b420e5e3ee5b32b518af1a653c3058"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00108.jsonl",
+      "documents": 50000,
+      "sha256": "1b0d8647ae8e339fec087210c4080cd2a1eca025a3143b8c89a638b8994ef30c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00109.jsonl",
+      "documents": 50000,
+      "sha256": "7a9c3648dd4932e45735b5a4c7925669a2f383ab1bd2fce5a58b0739783bd01c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00110.jsonl",
+      "documents": 50000,
+      "sha256": "a5e44c98f7d5546e9dbf1260095006853059eb096e20239a324f3f21664a4d3c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00111.jsonl",
+      "documents": 50000,
+      "sha256": "ab45f15f50ddc47540b74d6a89b4c95a0f6707361b024a0a02fd1eb7e8e6f12e"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00112.jsonl",
+      "documents": 50000,
+      "sha256": "17656534da69bd525eb4fea0f90f971b75a5fb0587cf476f31b62cc00709468b"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00113.jsonl",
+      "documents": 50000,
+      "sha256": "faa6dbd68be648088826620fd2fbe7669e2d2396e18d30e11fd162f5dc7af2bc"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00114.jsonl",
+      "documents": 50000,
+      "sha256": "90ccc1e3946a3381d1ad9c7c46413744c61b564b0ca4e9affecdad7ade18dbfc"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00115.jsonl",
+      "documents": 50000,
+      "sha256": "f609c2a01dc6dfb184df4be72a5d3616662b4c68d2b3ccc31a3d76e1842fe575"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00116.jsonl",
+      "documents": 50000,
+      "sha256": "f852d946b966fd83c94242a08ac9e03cc02ed64d8cac04d12f6f32509de10b8d"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00117.jsonl",
+      "documents": 50000,
+      "sha256": "9256a7e3f6aafa2f14138bf4d6cacc02e8ecb26346a2800af5abcc900914fc95"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00118.jsonl",
+      "documents": 50000,
+      "sha256": "8abc4a273e45ca67996cf37a1272db3af04ba3c31e4a8a535f38cdc75c60d82f"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00119.jsonl",
+      "documents": 50000,
+      "sha256": "3301f620a956ffe0bb4bf08007cb0b893dff9ff78056dafdceb5dac791a2e7ad"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00120.jsonl",
+      "documents": 50000,
+      "sha256": "c2b2b868d71b6e79e1952fcb8e5bf0b240e2b907b1947a0eb4d2cf292cbcc6e5"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00121.jsonl",
+      "documents": 50000,
+      "sha256": "9b37a76e62828f62ece5645cbc199646a6cc78c3de237f46d86a05a37eb0ab3f"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00122.jsonl",
+      "documents": 50000,
+      "sha256": "63dc0dc07bc22a172a242302967d9285916a57a0465e15d76d64843c72943a1d"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00123.jsonl",
+      "documents": 50000,
+      "sha256": "df247108af60808c38dc0a99aa6f8b381f850225fd359cd13e5a9dc056a23162"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00124.jsonl",
+      "documents": 50000,
+      "sha256": "d506f81fdc9a9857bf81a285de953c474439e52cad75b91db88b78ce5cb87679"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00125.jsonl",
+      "documents": 50000,
+      "sha256": "88d6abda493718cc5fb22517e96190d7eef973013ba54df383f53e505e2a9b02"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00126.jsonl",
+      "documents": 50000,
+      "sha256": "595b5d6f43382d51c5f5119243d9a77081a023f95a7ecea3d634d6a8a4e9d357"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00127.jsonl",
+      "documents": 50000,
+      "sha256": "337a0783b042838f723f4bde3619a7ab5c1d73fd386c9f90fdaf1e717ebd29cb"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00128.jsonl",
+      "documents": 50000,
+      "sha256": "a70bc787f88b28d1609ee3d2acc97192a1a0af802bc2615a6e5f56ea80ec512a"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00129.jsonl",
+      "documents": 50000,
+      "sha256": "1fb7b63d52919bab7fa7fa7fa274648a8f1419dc22cf9f9bbdb7ed43d676050c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00130.jsonl",
+      "documents": 50000,
+      "sha256": "c7844be3cbbb80efdd515005c8885014d7cdcc91de0838e390616cdbfc83eb57"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00131.jsonl",
+      "documents": 50000,
+      "sha256": "21d9841fc0b76742f567a88e204bbc192e9708132a8b27af466be8c2bfcabdc6"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00132.jsonl",
+      "documents": 50000,
+      "sha256": "7713329d761268fc3d5c19bac2b590d144de525a5ed07b90e28a2b17f5ed0095"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00133.jsonl",
+      "documents": 50000,
+      "sha256": "a42b958faabe741ebe1cc6603b7fc24cda11c0cb3a2b2c32af935fa24a61e1ee"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00134.jsonl",
+      "documents": 50000,
+      "sha256": "e7273a2704c659195f98cf8b3af492835bf101ec5f3e2d05a4b1ace899a4a921"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00135.jsonl",
+      "documents": 50000,
+      "sha256": "12d5516e8540699cef0b4c536ad8d257af089535290023defe81fd5616fb35d4"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00136.jsonl",
+      "documents": 50000,
+      "sha256": "8bc90fca92dd1c5bfd98eac57a5940fe48d8a230f753574efb443fb1475d1f78"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00137.jsonl",
+      "documents": 50000,
+      "sha256": "64b52f205dbc055c581a2fb275cdf307b427171531e55b77d2aeaa48a7a4e5e4"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00138.jsonl",
+      "documents": 50000,
+      "sha256": "28ac1f7c9bb6583393c1d553c1eaeb198ea305e60c685dc998468bf1b71e7aad"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00139.jsonl",
+      "documents": 50000,
+      "sha256": "3db889b8a6513c0ace60fe21358130be9df3c126e9c6a6e3e7cb19f9a48c1ab9"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00140.jsonl",
+      "documents": 50000,
+      "sha256": "9a34e481e43c2ae910e6f276fa0f02fe8d29af7df6dead015a31db640ce6690e"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00141.jsonl",
+      "documents": 50000,
+      "sha256": "ad9205af7f03e70a4cdcc279e5fcde6cc9dcd405de3351de327e9fe4fa1356a7"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00142.jsonl",
+      "documents": 50000,
+      "sha256": "133e5eef42fe4f8ee3baf452096c22e3c0b925e8ce7dae031744e866e6ff33ac"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00143.jsonl",
+      "documents": 50000,
+      "sha256": "a0a353e34d1b36f681f15da92562ec0d304a21c4fd2da5d943c150348f867039"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00144.jsonl",
+      "documents": 50000,
+      "sha256": "7b7e888a83e9da8bf6a08d9b10df504c9ee73e0c24882cd103ae4e12b70c3f48"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00145.jsonl",
+      "documents": 50000,
+      "sha256": "5aacd86ce6cbf472d4aff1477ec3ca07764af52c7682078add7c567c8ed475f1"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00146.jsonl",
+      "documents": 50000,
+      "sha256": "9fc9ade44314dfe3d5ef3d45838ca830ac16070e08f36cb96de102dc19a93e90"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00147.jsonl",
+      "documents": 50000,
+      "sha256": "482752cf0eea60fe4ac853f07c5405bd91b7a076b0dff72a99bf916fce5c0453"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00148.jsonl",
+      "documents": 50000,
+      "sha256": "23ea49227921255d209405cdbde33107ca615f5e0ab5007b879faa8027f40c4c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00149.jsonl",
+      "documents": 50000,
+      "sha256": "84b13ee299d5346e509e6fd3d37fb0ef05d98865ab7d4f4fd8e2816f41420da6"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00150.jsonl",
+      "documents": 50000,
+      "sha256": "b9ad2ca9e551caa5d9086ee82d30253cf1491ce6ef5a34940f49cbf2eaba0e94"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00151.jsonl",
+      "documents": 50000,
+      "sha256": "1e6d06ce3265b5331ea02b12b03f7d9589516fa03a1182129a2711c4ea08781d"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00152.jsonl",
+      "documents": 50000,
+      "sha256": "0fc751b607cb57aaec3ad9d6a74a2d27e4f45fee909cb973ff865fb79181f65f"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00153.jsonl",
+      "documents": 50000,
+      "sha256": "dfe6d4a13c441d4899cbf6d16cefada15d28fac39107f3013666ad2bcecc851a"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00154.jsonl",
+      "documents": 50000,
+      "sha256": "8b9d29fc9e29d0777939c43fc9e6614eba7e996806ff21cf0273ba17c717e365"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00155.jsonl",
+      "documents": 50000,
+      "sha256": "1172dcb1a0ef59cd6e3bb9f644057c8d0a3d14e9be5e0c0e6bbd438df9ea0835"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00156.jsonl",
+      "documents": 50000,
+      "sha256": "5bf6bae7f481fff97203224016e08f111af4ad7b011aeb4d9d8293eeef370204"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00157.jsonl",
+      "documents": 50000,
+      "sha256": "08968512b762aeaf96c46bb55bad8690c47fd29288673b13dc2357e1d5229d7f"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00158.jsonl",
+      "documents": 50000,
+      "sha256": "652d74003156269a9a585aefe0fd65a0a2fb799b63b67676fd17c66bddeaace4"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00159.jsonl",
+      "documents": 50000,
+      "sha256": "cfee4fb5ab83561bc475794f8ae94ad5067b88d8506731041702a5c3f3ee7819"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00160.jsonl",
+      "documents": 50000,
+      "sha256": "1fa80b87fdbd2f4d01e9d2e77d7083a00e34f4420d1c1ac33bf336465d97b7f8"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00161.jsonl",
+      "documents": 50000,
+      "sha256": "7cc4807829a79e20f028aac4cc70980711516e22f0bfae01e51880d2f813652a"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00162.jsonl",
+      "documents": 50000,
+      "sha256": "525df8d2e98c984e3e553a3a9adc28f38ed2a4fb3e5c51df39be239d94c45cff"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00163.jsonl",
+      "documents": 50000,
+      "sha256": "7d7bbdccc895db74e1d3e0252d6be3f3df951f601b7171dc7f23baf92b05df1c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00164.jsonl",
+      "documents": 50000,
+      "sha256": "a7276da563a2de0950bf945810d6bd019d959fa20de08c4b09fc229fe5536b36"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00165.jsonl",
+      "documents": 50000,
+      "sha256": "1c3aff20d4ad14b68cc384e1259343ad9cbde6d00d4b1ca7fdf00a1daba2cd0c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00166.jsonl",
+      "documents": 50000,
+      "sha256": "5130aa1095725bf55529933999b3dd349faf649e2aa70b81470cf22732c0ccc7"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00167.jsonl",
+      "documents": 50000,
+      "sha256": "978fec3416d57d92e726a0a1b630e99f0d85d97a786ba911338e7a5e49d37c7e"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00168.jsonl",
+      "documents": 50000,
+      "sha256": "8e93d98ba0cf7f4bd7effc8d73b5eed2ff8a3a3175265a3bd464c038a9bf36a5"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00169.jsonl",
+      "documents": 50000,
+      "sha256": "ccee8a0c0facb99fbb3180fdc177a96c725cad5c8aa18721684bef472b9a111b"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00170.jsonl",
+      "documents": 50000,
+      "sha256": "a29a42862fad71c009de1597743f7ef6827bc6d2c67fda2d4b9b7f2817eacaf2"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00171.jsonl",
+      "documents": 50000,
+      "sha256": "a71aca9725f06cb916cd9f8912f41a0e01ac202f7702b8e2b0f8a796b8169dab"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00172.jsonl",
+      "documents": 50000,
+      "sha256": "e5d24756a587328e4884218e2d2bfd2f1a2f241736e8e7c55dbc67c0011e7a80"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00173.jsonl",
+      "documents": 50000,
+      "sha256": "b52a33761f81612673f42dcb5d231d4ea14e3f7a9ef492630abf432be7db239d"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00174.jsonl",
+      "documents": 50000,
+      "sha256": "50ff55eee97e1a9322ff3237cd4183842ed01ca36c4775f56b55fe8e10d03a4a"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00175.jsonl",
+      "documents": 50000,
+      "sha256": "f2195881ebc25bbe25b8e5002f05ee89fa22d2d13596024c83facc33a8e3152c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00176.jsonl",
+      "documents": 50000,
+      "sha256": "217d78249dfd34a378a7accd4f33655cfa3ef2b18f40c5c87de1ec5ba63c524c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00177.jsonl",
+      "documents": 50000,
+      "sha256": "2a4d080f57e890bfcec0f6b31f47c1f1c39712f2b95a33e5f876cc23388ff922"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00178.jsonl",
+      "documents": 50000,
+      "sha256": "2ee01f549fe8ec891e2c37d652df0e8cd9500959d7fbd748ea341fbbfa93f4df"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00179.jsonl",
+      "documents": 50000,
+      "sha256": "f7925d68b9790895b3dc3eb4d2453e4e13d9e254c1165c19a144594e1bdabf13"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00180.jsonl",
+      "documents": 50000,
+      "sha256": "f8a7bfc0b355b4623e67216d25e406ba6b564443b8c803c83fcfc29423a9df46"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00181.jsonl",
+      "documents": 50000,
+      "sha256": "9f49f162842d9fbbc341e9da1f5f12486cc2717c96fbfb0105062eb033868cbb"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00182.jsonl",
+      "documents": 50000,
+      "sha256": "e9b5f5e2e81fc0f61cf8e1ce33914b4bbf460dcd1ff841812138e631e0c21936"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00183.jsonl",
+      "documents": 50000,
+      "sha256": "ecaff61acc494a0b40a1c95476d06f0f49f28a1a8382efc277384874350d66b6"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00184.jsonl",
+      "documents": 50000,
+      "sha256": "03e7a43745d3658fce0b249843632ecc407b8baa4ee18dfb781f90292ee65c8c"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00185.jsonl",
+      "documents": 50000,
+      "sha256": "e2ed1859ca88fb398a827fc98900f98588b652d6550acf30d59c797386f12503"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00186.jsonl",
+      "documents": 50000,
+      "sha256": "93ffbc0e540525272c6e596da52e16001b4f137b28f34c5bd52453c47ea8f3c9"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00187.jsonl",
+      "documents": 50000,
+      "sha256": "df141e038a17587c3c8971b09a2dea11ff6d24af328e00b0a11d38e67c37c782"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00188.jsonl",
+      "documents": 50000,
+      "sha256": "23b46e11a97c79bb2a00f5c6465b03ff6cfd9b8784595b00e88207b2761b61d8"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00189.jsonl",
+      "documents": 50000,
+      "sha256": "d400d0f7255ef7a41030355a98f2a4ae95ac58da0585c2e2241fa83204f17cd7"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00190.jsonl",
+      "documents": 50000,
+      "sha256": "ff5d2a2476251b8ac67673b3b8e71bbe45332a76c21f360c5d4136ae7bde04f6"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00191.jsonl",
+      "documents": 50000,
+      "sha256": "eeeb368d217cd317ba628ec0d00e4eb3652351ccfa143060eed4d91a00998fb8"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00192.jsonl",
+      "documents": 50000,
+      "sha256": "07e372aeebd8fb1b9692f79d90910700d7b457370ca6b4c7fed425677c9bd4dc"
+    },
+    {
+      "path": "data/clean/fineweb-edu-sample10bt-full/clean-00193.jsonl",
+      "documents": 22082,
+      "sha256": "95c59ac922f8be35e0d09b82f860f07d72e88810e4be88bf1088f97292daf2c8"
+    }
+  ]
+}

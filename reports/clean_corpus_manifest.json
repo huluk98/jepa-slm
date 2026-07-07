@@ -4,31 +4,29 @@
   "local_path": "data/clean/fineweb-edu-sample10bt-100k/clean-*.jsonl",
   "seen_documents": 100000,
   "kept_documents": 100000,
-  "kept_characters": 426194823,
+  "kept_characters": 426194786,
   "min_chars": 200,
   "max_chars": 20000,
   "normalize_text": true,
   "complete": true,
+  "token_stats": {
+    "tokenizer": "google-t5/t5-small",
+    "content_tokens": 98673294,
+    "tokens_per_doc_mean": 987,
+    "tokens_per_doc_median": 667,
+    "packed_blocks_512": 192916,
+    "docs_over_512_tokens_pct": 62.0
+  },
   "shards": [
     {
       "path": "data/clean/fineweb-edu-sample10bt-100k/clean-00000.jsonl",
-      "documents": 25000,
-      "sha256": "746fc908a9a7f076b04ab490b361dbfb7b21097b261ff66b29aa742b1d197261"
+      "documents": 50000,
+      "sha256": "7af7a381379546fd69e7745004456cfe5eefc11a840538e6af24feba4b6ae66b"
     },
     {
       "path": "data/clean/fineweb-edu-sample10bt-100k/clean-00001.jsonl",
-      "documents": 25000,
-      "sha256": "7065b8f44f7dc11ac4f104e291559ed672d079b1fd255f943ad46fe8172d3bb0"
-    },
-    {
-      "path": "data/clean/fineweb-edu-sample10bt-100k/clean-00002.jsonl",
-      "documents": 25000,
-      "sha256": "cbf399438915715043ead4d5820d777ea67bf04618fa80ea8e32914ea2f4a288"
-    },
-    {
-      "path": "data/clean/fineweb-edu-sample10bt-100k/clean-00003.jsonl",
-      "documents": 25000,
-      "sha256": "b4cefd752d16bd02fa65ffb8abac4213df272fa96292bee97d599f55010e1471"
+      "documents": 50000,
+      "sha256": "58f0e16fb8d80f15a4fcec4a9ad7b815bbd395b89b05d24cb8ac1be174682758"
     }
   ]
 }
