@@ -107,7 +107,13 @@ if [[ -n "$EVAL_DATASET" ]]; then echo ">>> Validation-CE enabled on: $EVAL_DATA
 
 # 5) launch through $PYBIN so the sanity-checked interpreter is the one that
 # trains (a bare `torchrun` could resolve to a different env on PATH).
-LAUNCH=("$PYBIN" -m torch.distributed.run --standalone --nnodes=1 --nproc_per_node="$nproc" -m jepa_slm.train --config "$CONFIG")
+if [[ "$nproc" -ge 2 ]]; then
+  LAUNCH=("$PYBIN" -m torch.distributed.run --standalone --nnodes=1 --nproc_per_node="$nproc" -m jepa_slm.train --config "$CONFIG")
+else
+  # Single-process runs skip torchrun entirely: no elastic rendezvous needed,
+  # and it can fail outright on hosts with odd localhost DNS (e.g. macOS).
+  LAUNCH=("$PYBIN" -m jepa_slm.train --config "$CONFIG")
+fi
 echo ">>> Launching: ${LAUNCH[*]}"
 if [[ "${DRY_RUN:-0}" == "1" ]]; then echo "DRY_RUN launch (not executed)"; exit 0; fi
 exec "${LAUNCH[@]}"
