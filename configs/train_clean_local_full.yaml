@@ -58,10 +58,16 @@ data:
 
 runtime:
   output_dir: outputs/jepa-slm-clean-local-full
-  # One epoch = 18,449,241 blocks / 64 blocks per step = 288,269 steps.
-  # Cosine LR anneals to zero at max_steps, so set the full budget up front.
+  # One epoch = 18,449,241 blocks / 64 blocks per step = 288,269 steps at
+  # world_size 1. Each extra GPU divides the per-epoch step count (W GPUs ->
+  # ~288269/W steps/epoch), so 288000 steps on 8 GPUs is ~8 epochs; rescale
+  # max_steps to your GPU count. Cosine LR anneals to zero at max_steps, so
+  # set the full budget up front.
   max_steps: 288000
   save_every_steps: 5000
   keep_last_checkpoints: 5
+  # Plenty of memory at micro-batch 64 on H20-class GPUs; recompute would only
+  # cost ~25-35% throughput.
+  gradient_checkpointing: false
   log_every_steps: 50
   seed: 13

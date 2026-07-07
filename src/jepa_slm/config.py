@@ -296,6 +296,14 @@ def load_training_config(path: Path | str) -> TrainingConfig:
     model_raw = dict(raw.get("model", {}))
     jepa_raw = dict(raw.get("jepa", {}))
     objective_raw = dict(raw.get("objective", {}))
+    if objective_raw.get("ce_weight", 1.0) != 1.0:
+        # Loudly reject knobs that parse but are not wired through, so an
+        # "ablation" cannot silently run the baseline.
+        print(
+            f"[jepa-slm] WARNING: objective.ce_weight={objective_raw['ce_weight']} "
+            "is NOT wired; the CE coefficient is fixed at 1.0.",
+            flush=True,
+        )
     training_raw = dict(raw.get("training", {}))
     batching_raw = dict(raw.get("batching", {}))
     optimizer_raw = dict(raw.get("optimizer", {}))
@@ -309,7 +317,15 @@ def load_training_config(path: Path | str) -> TrainingConfig:
     if nested_model_path:
         nested_path = Path(nested_model_path)
         if not nested_path.is_absolute() and not nested_path.exists():
-            nested_path = config_path.parent / nested_path
+            # config_path values like "configs/model_0_2b.yaml" are written
+            # relative to the repo root; when the process runs from elsewhere,
+            # try the parent config's directory and then its parent (the repo
+            # root for configs living in configs/).
+            for base in (config_path.parent, config_path.parent.parent):
+                candidate = base / nested_path
+                if candidate.exists():
+                    nested_path = candidate
+                    break
         nested = load_training_config(nested_path)
         model = nested.model
         jepa = nested.jepa
@@ -397,7 +413,9 @@ def load_training_config(path: Path | str) -> TrainingConfig:
                 "cuda_visible_devices": hardware_raw.get(
                     "cuda_visible_devices", runtime_raw.get("cuda_visible_devices", None)
                 ),
-                "compile": distributed_raw.get("compile", runtime_raw.get("compile", False)),
+                # runtime.compile (the trainer's own section) wins over the
+                # legacy distributed.compile alias when both are present.
+                "compile": runtime_raw.get("compile", distributed_raw.get("compile", False)),
                 "gradient_checkpointing": training_raw.get(
                     "gradient_checkpointing",
                     runtime_raw.get("gradient_checkpointing", True),

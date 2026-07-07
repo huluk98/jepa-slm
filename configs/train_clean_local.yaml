@@ -55,5 +55,8 @@ runtime:
   output_dir: outputs/jepa-slm-clean-local
   max_steps: 1000
   save_every_steps: 1000
+  # Plenty of memory at micro-batch 64 on H20-class GPUs; recompute would only
+  # cost ~25-35% throughput.
+  gradient_checkpointing: false
   log_every_steps: 10
   seed: 13

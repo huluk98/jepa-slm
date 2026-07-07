@@ -87,3 +87,90 @@ def test_checkpoint_resume_restores_step_and_weights(tmp_path: Path) -> None:
     resumed_param = next(resumed.parameters())
     assert step == 7
     assert torch.allclose(resumed_param, torch.full_like(resumed_param, 0.25))
+
+
+def _tiny_config() -> TrainingConfig:
+    return TrainingConfig(
+        model=ModelShape(
+            d_model=32,
+            encoder_layers=1,
+            decoder_layers=1,
+            d_ff=64,
+            attention_heads=4,
+            vocab_size=320,
+            predictor_width=32,
+            predictor_layers=1,
+        ),
+        jepa=JepaSettings(predictor_width=32, predictor_layers=1),
+    )
+
+
+def test_checkpoint_write_is_atomic_and_carries_epoch_position(tmp_path: Path) -> None:
+    config = _tiny_config()
+    model = JepaEncoderDecoder(config.model, config.jepa)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+
+    save_checkpoint(
+        tmp_path, 3, model, optimizer, config, samples_consumed=100, samples_into_epoch=40
+    )
+
+    checkpoint_dir = tmp_path / "step-00000003"
+    assert not list(checkpoint_dir.glob("*.tmp"))  # temp file renamed away
+    state = torch.load(checkpoint_dir / "trainer_state.pt", map_location="cpu")
+    assert state["samples_consumed"] == 100
+    assert state["samples_into_epoch"] == 40
+
+    resumed = JepaEncoderDecoder(config.model, config.jepa)
+    resumed_opt = torch.optim.AdamW(resumed.parameters(), lr=1e-4)
+    meta: dict = {}
+    step = load_checkpoint(
+        checkpoint_dir, resumed, resumed_opt, torch.device("cpu"), out_meta=meta
+    )
+    assert step == 3
+    assert meta == {"samples_consumed": 100, "samples_into_epoch": 40}
+
+
+def test_load_checkpoint_strips_stale_orig_mod_prefix(tmp_path: Path) -> None:
+    # Checkpoints written through a torch.compile wrapper before _unwrap_model
+    # existed carry "_orig_mod."-prefixed keys; loading must still work.
+    config = _tiny_config()
+    model = JepaEncoderDecoder(config.model, config.jepa)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    save_checkpoint(tmp_path, 1, model, optimizer, config)
+
+    state_path = tmp_path / "step-00000001" / "trainer_state.pt"
+    state = torch.load(state_path, map_location="cpu", weights_only=False)
+    state["model"] = {f"_orig_mod.{k}": v for k, v in state["model"].items()}
+    torch.save(state, state_path)
+
+    resumed = JepaEncoderDecoder(config.model, config.jepa)
+    resumed_opt = torch.optim.AdamW(resumed.parameters(), lr=1e-4)
+    step = load_checkpoint(state_path.parent, resumed, resumed_opt, torch.device("cpu"))
+    assert step == 1
+
+
+def test_save_checkpoint_unwraps_compile_wrapper(tmp_path: Path) -> None:
+    config = _tiny_config()
+    model = JepaEncoderDecoder(config.model, config.jepa)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+
+    class FakeOptimizedModule:  # mimics torch.compile's wrapper
+        def __init__(self, mod):
+            self._orig_mod = mod
+
+    save_checkpoint(tmp_path, 2, FakeOptimizedModule(model), optimizer, config)
+    state = torch.load(
+        tmp_path / "step-00000002" / "trainer_state.pt", map_location="cpu"
+    )
+    assert not any(k.startswith("_orig_mod.") for k in state["model"])
+
+
+def test_restore_rng_state_coerces_dtype_and_device() -> None:
+    from jepa_slm.trainer import _restore_rng_state
+
+    # A checkpoint loaded with map_location=cuda hands set_rng_state a
+    # non-CPU/non-uint8 tensor, which torch rejects; the restore path must
+    # coerce it back. Simulate the dtype half on CPU-only machines.
+    good_state = torch.get_rng_state()
+    _restore_rng_state({"torch": good_state.to(torch.float32)})
+    assert torch.equal(torch.get_rng_state(), good_state)
